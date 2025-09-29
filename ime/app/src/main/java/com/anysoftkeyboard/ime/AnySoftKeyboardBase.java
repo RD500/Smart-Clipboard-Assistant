@@ -49,9 +49,13 @@ import com.menny.android.anysoftkeyboard.BuildConfig;
 import com.menny.android.anysoftkeyboard.R;
 import io.reactivex.disposables.CompositeDisposable;
 import java.util.List;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
+import android.util.Pair;
 
 public abstract class AnySoftKeyboardBase extends InputMethodService
-    implements OnKeyboardActionListener {
+        implements OnKeyboardActionListener, ClipboardManager.OnPrimaryClipChangedListener {
   protected static final String TAG = "ASK";
 
   protected static final long ONE_FRAME_DELAY = 1000L / 60L;
@@ -61,6 +65,8 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
   private KeyboardViewContainerView mInputViewContainer;
   private InputViewBinder mInputView;
   private InputMethodManager mInputMethodManager;
+  private ClipboardManager mClipboardManager;
+  private ClipboardTextClassifier mTextClassifier;
 
   // NOTE: These two are dangerous to use, as they may point to
   // an inaccurate position (in cases where onSelectionUpdate is delayed).
@@ -103,9 +109,38 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
     }
 
     mInputMethodManager = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+    Logger.d(TAG, "Initializing ClipboardManager and listener.");
+    mClipboardManager = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+    if (mClipboardManager!= null) {
+      mClipboardManager.addPrimaryClipChangedListener(this);
   }
+    // ADD THE FOLLOWING BLOCK TO INITIALIZE THE AI CLASSIFIER
+    // NOTE: Make sure you have added your "model.tflite" to the assets folder
+    mTextClassifier = new ClipboardTextClassifier(this, "model.tflite", results -> {
+      if (results!= null &&!results.isEmpty()) {
+        // This is where the AI results arrive. For now, we just log them.
+        // In the next phase, we will use this to show UI suggestions.
+        Pair<String, Float> topResult = results.get(0);
+        Logger.d(TAG, "AI Classification Result: " + topResult.first + " with confidence " + topResult.second);
+      }
+    });
+    }
 
-  @Nullable
+  // ADD THIS ENTIRE METHOD
+  @Override
+  public void onPrimaryClipChanged() {
+    if (mClipboardManager!= null && mClipboardManager.hasPrimaryClip()) {
+      ClipData clipData = mClipboardManager.getPrimaryClip();
+      if (clipData!= null && clipData.getItemCount() > 0) {
+        CharSequence copiedText = clipData.getItemAt(0).getText();
+        if (copiedText!= null) {
+          // For now, we just log it. Later, this text will be sent to the AI model.
+          mTextClassifier.classify(copiedText.toString());
+        }
+      }
+    }
+  }
+    @Nullable
   public final InputViewBinder getInputView() {
     return mInputView;
   }
@@ -315,7 +350,14 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
     mInputSessionDisposables.dispose();
     if (getInputView() != null) getInputView().onViewNotRequired();
     mInputView = null;
-
+    if (mClipboardManager!= null) {
+      mClipboardManager.removePrimaryClipChangedListener(this);
+      Logger.d(TAG, "ClipboardManager listener removed.");
+    }
+    // ADD THIS BLOCK
+    if (mTextClassifier!= null) {
+      mTextClassifier.close();
+    }
     super.onDestroy();
   }
 

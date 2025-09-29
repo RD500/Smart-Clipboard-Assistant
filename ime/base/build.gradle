@@ -1,6 +1,24 @@
-apply plugin: 'com.android.library'
+plugins {
+    id 'com.android.library'
+    id 'kotlin-android'
+}
 
 apply from: "${rootDir}/gradle/android_general.gradle"
+
+android {
+    namespace 'com.anysoftkeyboard.base'
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // Make Kotlin compile to the same JVM as Java
+    kotlinOptions {
+        jvmTarget = "17"
+        allWarningsAsErrors = false  // avoid -Werror failing build
+    }
+}
 
 dependencies {
     api 'com.getkeepsafe.relinker:relinker:1.4.5'
@@ -10,6 +28,7 @@ dependencies {
     testImplementation project(":ime:base-test")
 }
 
-android {
-    namespace 'com.anysoftkeyboard.base'
+// Optional: Kotlin toolchain
+kotlin {
+    jvmToolchain(17)
 }

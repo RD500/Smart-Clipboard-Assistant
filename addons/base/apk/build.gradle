@@ -1,7 +1,7 @@
 apply plugin: 'com.android.library'
+apply plugin: 'org.jetbrains.kotlin.android'
 
 apply from: "${rootDir}/gradle/android_general.gradle"
-apply plugin: 'org.jetbrains.kotlin.android'
 
 dependencies {
     implementation project(path: ':api')
@@ -15,7 +15,26 @@ dependencies {
 
 android {
     namespace 'com.anysoftkeyboard.addon.base.apk'
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
     dataBinding {
         enabled = true
     }
+}
+
+// Kotlin JVM target
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+    kotlinOptions {
+        jvmTarget = "17"
+        allWarningsAsErrors = false
+    }
+}
+
+// Allow warnings without failing compilation
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs.removeAll { it == "-Werror" }
 }

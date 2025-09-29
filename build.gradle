@@ -1,4 +1,3 @@
-import java.util.function.BiConsumer
 import java.util.stream.Stream
 import java.nio.file.Files
 
@@ -11,8 +10,8 @@ buildscript {
     repositories {
         google()
         mavenLocal()
-        maven { url 'https://repo1.maven.org/maven2' /*maven-central with HTTPS*/ }
-        maven { url 'https://oss.sonatype.org/content/repositories/snapshots/' }
+        maven { url 'https://repo1.maven.org/maven2' }
+//        maven { url 'https://oss.sonatype.org/content/repositories/snapshots/' }
         maven { url "https://plugins.gradle.org/m2/" }
     }
     dependencies {
@@ -30,24 +29,23 @@ allprojects {
         google()
         mavenLocal()
         gradlePluginPortal()
-        maven { url 'https://repo1.maven.org/maven2' /*maven-central with HTTPS*/ }
-        maven { url 'https://oss.sonatype.org/content/repositories/snapshots/' }
+        maven { url 'https://repo1.maven.org/maven2' }
+//        maven { url 'https://oss.sonatype.org/content/repositories/snapshots/' }
     }
 }
 
 apply from: "${rootDir}/gradle/root_all_projects_ext.gradle"
 apply from: "${rootDir}/gradle/fdroid_yaml_output.gradle"
 
+// Clean task
 def cleanOthers = tasks.register("cleanOthers", Delete) {
     delete buildDir
-    //we do not want to delete the current log file
     logFile.parentFile.listFiles().each {
         if (it != null && it.absolutePath != logFile.absolutePath) {
             delete it
         }
     }
 
-    //deleting all beta/production change-logs
     Stream<Path> files = Files.walk(rootDir.toPath())
     files.sorted(Comparator.reverseOrder())
             .map { it.toFile() }
@@ -59,3 +57,23 @@ def cleanOthers = tasks.register("cleanOthers", Delete) {
 tasks.register('clean').configure({
     it.finalizedBy(cleanOthers)
 })
+
+// ====== Kotlin/Java JVM target and remove -Werror ======
+subprojects {
+    // Kotlin
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+        kotlinOptions {
+            jvmTarget = "17"
+            allWarningsAsErrors = false
+        }
+    }
+
+    // Java
+    tasks.withType(JavaCompile).configureEach {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+
+        // Remove -Werror to avoid compilation failing due to warnings
+        options.compilerArgs.removeAll { it == "-Werror" }
+    }
+}

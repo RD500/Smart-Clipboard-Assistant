@@ -15,32 +15,28 @@ public class ScrollViewAsMainChild extends ScrollView implements MainChild {
 
   public ScrollViewAsMainChild(Context context) {
     super(context);
-    init();
   }
 
   public ScrollViewAsMainChild(Context context, AttributeSet attrs) {
     super(context, attrs);
-    init();
   }
 
   public ScrollViewAsMainChild(Context context, AttributeSet attrs, int defStyleAttr) {
     super(context, attrs, defStyleAttr);
-    init();
   }
 
   public ScrollViewAsMainChild(
-      Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
+          Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
     super(context, attrs, defStyleAttr, defStyleRes);
-    init();
-  }
-
-  private void init() {
-    inflate(getContext(), R.layout.scroll_view_internal, this);
   }
 
   @Override
   protected void onFinishInflate() {
     super.onFinishInflate();
+
+    // Inflate the internal layout here (safe point, no "this-escape" warning)
+    inflate(getContext(), R.layout.scroll_view_internal, this);
+
     mItemsHolder = findViewById(R.id.inner_layout);
     mBottomGap = findViewById(R.id.bottom_gap_view);
 
@@ -48,7 +44,7 @@ public class ScrollViewAsMainChild extends ScrollView implements MainChild {
     // Since the items in the list are remote-views, they are drawn on top of our UI.
     // this means that they think that itemsContainer is very large and so they
     // draw themselves outside the scroll window.
-    // The only nice why I found to deal with this is to set them to INVISIBLE
+    // The only nice way I found to deal with this is to set them to INVISIBLE
     // when they scroll out of view.
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
       setOnScrollChangeListener(this::onScrollChanged);
@@ -58,7 +54,7 @@ public class ScrollViewAsMainChild extends ScrollView implements MainChild {
   @VisibleForTesting
   void onScrollChanged(View v, int scrollX, int scrollY, int oldScrollX, int oldScrollY) {
     int childIndex;
-    // hiding all the children that above the scroll Y
+    // hiding all the children that are above the scroll Y
     for (childIndex = 0; childIndex < mItemsHolder.getChildCount(); childIndex++) {
       var child = mItemsHolder.getChildAt(childIndex);
       if (child.getBottom() < scrollY) child.setVisibility(View.INVISIBLE);

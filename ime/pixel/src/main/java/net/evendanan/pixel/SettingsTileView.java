@@ -10,43 +10,61 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.annotation.DrawableRes;
 
-/** A custom view from a */
+/** A custom settings tile view */
 public class SettingsTileView extends LinearLayout {
   private TextView mLabel;
   private ImageView mImage;
   private Drawable mSettingsTile;
   private CharSequence mSettingsLabel;
+  private AttributeSet mStoredAttrs; // store attrs to use later
 
   public SettingsTileView(Context context) {
     super(context);
-    init(null);
   }
 
   public SettingsTileView(Context context, AttributeSet attrs) {
     super(context, attrs);
-    init(attrs);
+    this.mStoredAttrs = attrs;
   }
 
   public SettingsTileView(Context context, AttributeSet attrs, int defStyle) {
     super(context, attrs, defStyle);
-    init(attrs);
+    this.mStoredAttrs = attrs;
   }
 
-  private void init(AttributeSet attrs) {
-    setupBasicLayoutConfiguration();
+  @Override
+  protected void onFinishInflate() {
+    super.onFinishInflate();
 
-    TypedArray array = getContext().obtainStyledAttributes(attrs, R.styleable.SettingsTileView);
+    // Apply styleable attributes
+    if (mStoredAttrs != null) {
+      TypedArray array = getContext().obtainStyledAttributes(mStoredAttrs, R.styleable.SettingsTileView);
+      mSettingsTile = array.getDrawable(R.styleable.SettingsTileView_tileImage);
+      mSettingsLabel = array.getText(R.styleable.SettingsTileView_tileLabel);
+      array.recycle();
+    }
 
-    mSettingsTile = array.getDrawable(R.styleable.SettingsTileView_tileImage);
-    mSettingsLabel = array.getText(R.styleable.SettingsTileView_tileLabel);
-
-    array.recycle();
-
+    // Inflate internal layout
     inflate(getContext(), R.layout.settings_tile_view, this);
+
+    // Bind children
+    mImage = findViewById(R.id.tile_image);
+    if (mSettingsTile != null) {
+      mImage.setImageDrawable(mSettingsTile);
+    }
+
+    mLabel = findViewById(R.id.tile_label);
+    if (mSettingsLabel != null) {
+      mLabel.setText(mSettingsLabel);
+    }
+
+    // Configure background/orientation
+    setupBasicLayoutConfiguration();
   }
 
   private void setupBasicLayoutConfiguration() {
     setBackgroundResource(R.drawable.transparent_click_feedback_background);
+
     if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
       setOrientation(LinearLayout.VERTICAL);
       setLayoutParams(new LayoutParams(0, LayoutParams.MATCH_PARENT, 1f));
@@ -56,29 +74,23 @@ public class SettingsTileView extends LinearLayout {
     }
   }
 
-  @Override
-  protected void onFinishInflate() {
-    super.onFinishInflate();
-    mImage = findViewById(R.id.tile_image);
-    mImage.setImageDrawable(mSettingsTile);
-    mLabel = findViewById(R.id.tile_label);
-    mLabel.setText(mSettingsLabel);
-    setupBasicLayoutConfiguration();
-  }
-
   public CharSequence getLabel() {
-    return mLabel.getText();
+    return mLabel != null ? mLabel.getText() : null;
   }
 
   public void setLabel(CharSequence label) {
-    mLabel.setText(label);
+    if (mLabel != null) {
+      mLabel.setText(label);
+    }
   }
 
   public Drawable getImage() {
-    return mImage.getDrawable();
+    return mImage != null ? mImage.getDrawable() : null;
   }
 
   public void setImage(@DrawableRes int imageId) {
-    mImage.setImageResource(imageId);
+    if (mImage != null) {
+      mImage.setImageResource(imageId);
+    }
   }
 }
