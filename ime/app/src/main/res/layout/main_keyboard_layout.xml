@@ -33,6 +33,7 @@
         android:layout_height="@dimen/candidate_strip_height"
         android:layout_margin="0px"
         android:padding="0px" />
+    <include layout="@layout/suggestion_strip_apps" />
 
     <com.anysoftkeyboard.keyboards.views.AnyKeyboardView
         android:id="@+id/AnyKeyboardMainView"

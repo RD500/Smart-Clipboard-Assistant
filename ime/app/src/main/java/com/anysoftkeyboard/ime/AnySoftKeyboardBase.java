@@ -20,6 +20,8 @@ import android.annotation.SuppressLint;
 import android.content.res.Configuration;
 import android.graphics.drawable.Drawable;
 import android.inputmethodservice.InputMethodService;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.SystemClock;
 import android.view.Gravity;
 import android.view.KeyCharacterMap;
@@ -48,6 +50,7 @@ import com.menny.android.anysoftkeyboard.AnyApplication;
 import com.menny.android.anysoftkeyboard.BuildConfig;
 import com.menny.android.anysoftkeyboard.R;
 import io.reactivex.disposables.CompositeDisposable;
+
 import java.util.List;
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -57,6 +60,7 @@ import android.util.Pair;
 public abstract class AnySoftKeyboardBase extends InputMethodService
         implements OnKeyboardActionListener, ClipboardManager.OnPrimaryClipChangedListener {
   protected static final String TAG = "ASK";
+  protected static final String AI_RESULTS_TAG = "ASK_AI_RESULTS";
 
   protected static final long ONE_FRAME_DELAY = 1000L / 60L;
 
@@ -67,18 +71,19 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
   private InputMethodManager mInputMethodManager;
   private ClipboardManager mClipboardManager;
   private ClipboardTextClassifier mTextClassifier;
+  private ViewGroup mAppSuggestionsContainer;
+  private View mCandidateView;
+  private Handler mHandler; // Handler to post UI updates to the main thread
 
-  // NOTE: These two are dangerous to use, as they may point to
-  // an inaccurate position (in cases where onSelectionUpdate is delayed).
   protected int mGlobalCursorPositionDangerous = 0;
   protected int mGlobalSelectionStartPositionDangerous = 0;
   protected int mGlobalCandidateStartPositionDangerous = 0;
   protected int mGlobalCandidateEndPositionDangerous = 0;
 
   protected final ModifierKeyState mShiftKeyState =
-      new ModifierKeyState(true /*supports locked state*/);
+          new ModifierKeyState(true /*supports locked state*/);
   protected final ModifierKeyState mControlKeyState =
-      new ModifierKeyState(false /*does not support locked state*/);
+          new ModifierKeyState(false /*does not support locked state*/);
 
   @NonNull protected final CompositeDisposable mInputSessionDisposables = new CompositeDisposable();
   private int mOrientation;
@@ -87,24 +92,23 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
   @CallSuper
   public void onCreate() {
     Logger.i(
-        TAG,
-        "****** AnySoftKeyboard v%s (%d) service started.",
-        BuildConfig.VERSION_NAME,
-        BuildConfig.VERSION_CODE);
+            TAG,
+            "****** AnySoftKeyboard v%s (%d) service started.",
+            BuildConfig.VERSION_NAME,
+            BuildConfig.VERSION_CODE);
     super.onCreate();
+    mHandler = new Handler(Looper.getMainLooper()); // Initialize the handler
     mOrientation = getResources().getConfiguration().orientation;
     if (!BuildConfig.DEBUG && DeveloperUtils.hasTracingRequested(getApplicationContext())) {
       try {
         DeveloperUtils.startTracing();
         Toast.makeText(getApplicationContext(), R.string.debug_tracing_starting, Toast.LENGTH_SHORT)
-            .show();
+                .show();
       } catch (Exception e) {
-        // see issue https://github.com/AnySoftKeyboard/AnySoftKeyboard/issues/105
-        // I might get a "Permission denied" error.
         e.printStackTrace();
         Toast.makeText(
-                getApplicationContext(), R.string.debug_tracing_starting_failed, Toast.LENGTH_LONG)
-            .show();
+                        getApplicationContext(), R.string.debug_tracing_starting_failed, Toast.LENGTH_LONG)
+                .show();
       }
     }
 
@@ -113,34 +117,66 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
     mClipboardManager = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
     if (mClipboardManager!= null) {
       mClipboardManager.addPrimaryClipChangedListener(this);
-  }
-    // ADD THE FOLLOWING BLOCK TO INITIALIZE THE AI CLASSIFIER
-    // NOTE: Make sure you have added your "model.tflite" to the assets folder
-    mTextClassifier = new ClipboardTextClassifier(this, "model.tflite", results -> {
-      if (results!= null &&!results.isEmpty()) {
-        // This is where the AI results arrive. For now, we just log them.
-        // In the next phase, we will use this to show UI suggestions.
-        Pair<String, Float> topResult = results.get(0);
-        Logger.d(TAG, "AI Classification Result: " + topResult.first + " with confidence " + topResult.second);
-      }
-    });
     }
 
-  // ADD THIS ENTIRE METHOD
+    mTextClassifier = new ClipboardTextClassifier(this, "distilbert_metadata_please_work.tflite", results -> {
+      // This is the callback that receives the AI results.
+      // We now pass these results to our UI method on the main UI thread.
+      if (mHandler!= null) {
+        mHandler.post(() -> showAppSuggestions(results));
+      }
+    });
+  }
+
   @Override
   public void onPrimaryClipChanged() {
     if (mClipboardManager!= null && mClipboardManager.hasPrimaryClip()) {
       ClipData clipData = mClipboardManager.getPrimaryClip();
       if (clipData!= null && clipData.getItemCount() > 0) {
         CharSequence copiedText = clipData.getItemAt(0).getText();
-        if (copiedText!= null) {
-          // For now, we just log it. Later, this text will be sent to the AI model.
+        if (copiedText!= null && mTextClassifier!= null) {
+          Logger.d(TAG, "New primary clip detected. Text: '" + copiedText + "'. Classifying...");
           mTextClassifier.classify(copiedText.toString());
         }
       }
     }
   }
-    @Nullable
+
+  private void showAppSuggestions(List<Pair<String, Float>> results) {
+    if (results == null || results.isEmpty()) {
+      hideAppSuggestions();
+      return;
+    }
+
+    Pair<String, Float> topResult = results.get(0);
+    // We'll only show suggestions if the confidence is high (e.g., > 80%)
+    // and it's not just plain text.
+    boolean shouldShow = topResult.second > 0.8 &&!topResult.first.equals("plain_text");
+
+    if (shouldShow) {
+      // Hide the normal word suggestions and show our app suggestions
+      if (mCandidateView!= null) mCandidateView.setVisibility(View.GONE);
+      if (mAppSuggestionsContainer!= null) mAppSuggestionsContainer.setVisibility(View.VISIBLE);
+
+      // --- Placeholder for Phase 3 ---
+      // In the next phase, we will add code here to:
+      // 1. Get the top category (e.g., "address").
+      // 2. Find apps on the device that can handle an address.
+      // 3. Create ImageViews for each app and add them to mAppSuggestionsContainer.
+      // For now, we are just making the container visible.
+
+    } else {
+      hideAppSuggestions();
+    }
+  }
+
+  private void hideAppSuggestions() {
+    // Show the normal word suggestions and hide our app suggestions
+    if (mAppSuggestionsContainer!= null) mAppSuggestionsContainer.setVisibility(View.GONE);
+    if (mCandidateView!= null) mCandidateView.setVisibility(View.VISIBLE);
+  }
+
+  @Nullable
   public final InputViewBinder getInputView() {
     return mInputView;
   }
@@ -169,27 +205,27 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
     if (ic == null) return;
     long eventTime = SystemClock.uptimeMillis();
     ic.sendKeyEvent(
-        new KeyEvent(
-            eventTime,
-            eventTime,
-            KeyEvent.ACTION_DOWN,
-            keyEventCode,
-            0,
-            metaState,
-            KeyCharacterMap.VIRTUAL_KEYBOARD,
-            0,
-            KeyEvent.FLAG_SOFT_KEYBOARD | KeyEvent.FLAG_KEEP_TOUCH_MODE));
+            new KeyEvent(
+                    eventTime,
+                    eventTime,
+                    KeyEvent.ACTION_DOWN,
+                    keyEventCode,
+                    0,
+                    metaState,
+                    KeyCharacterMap.VIRTUAL_KEYBOARD,
+                    0,
+                    KeyEvent.FLAG_SOFT_KEYBOARD | KeyEvent.FLAG_KEEP_TOUCH_MODE));
     ic.sendKeyEvent(
-        new KeyEvent(
-            eventTime,
-            SystemClock.uptimeMillis(),
-            KeyEvent.ACTION_UP,
-            keyEventCode,
-            0,
-            metaState,
-            KeyCharacterMap.VIRTUAL_KEYBOARD,
-            0,
-            KeyEvent.FLAG_SOFT_KEYBOARD | KeyEvent.FLAG_KEEP_TOUCH_MODE));
+            new KeyEvent(
+                    eventTime,
+                    SystemClock.uptimeMillis(),
+                    KeyEvent.ACTION_UP,
+                    keyEventCode,
+                    0,
+                    metaState,
+                    KeyCharacterMap.VIRTUAL_KEYBOARD,
+                    0,
+                    KeyEvent.FLAG_SOFT_KEYBOARD | KeyEvent.FLAG_KEEP_TOUCH_MODE));
   }
 
   public abstract void deleteLastCharactersFromInput(int countToDelete);
@@ -201,21 +237,22 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
 
   @Override
   public View onCreateInputView() {
-    if (mInputView != null) mInputView.onViewNotRequired();
+    if (mInputView!= null) mInputView.onViewNotRequired();
     mInputView = null;
 
     GCUtils.getInstance()
-        .performOperationWithMemRetry(
-            TAG,
-            () -> {
-              mInputViewContainer = createInputViewContainer();
-              mInputViewContainer.setBackgroundResource(R.drawable.ask_wallpaper);
-            });
+            .performOperationWithMemRetry(
+                    TAG,
+                    () -> {
+                      mInputViewContainer = createInputViewContainer();
+                      mInputViewContainer.setBackgroundResource(R.drawable.ask_wallpaper);
+                    });
 
     mInputView = mInputViewContainer.getStandardKeyboardView();
     mInputViewContainer.setOnKeyboardActionListener(this);
     setupInputViewWatermark();
-
+    mAppSuggestionsContainer = mInputViewContainer.findViewById(R.id.app_suggestions_container);
+    mCandidateView = mInputViewContainer.findViewById(R.id.candidate_view);
     return mInputViewContainer;
   }
 
@@ -235,7 +272,7 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
   public void onConfigurationChanged(Configuration newConfig) {
     ((AnyApplication) getApplication()).setNewConfigurationToAllAddOns(newConfig);
     super.onConfigurationChanged(newConfig);
-    if (newConfig.orientation != mOrientation) {
+    if (newConfig.orientation!= mOrientation) {
       var lastOrientation = mOrientation;
       mOrientation = newConfig.orientation;
       onOrientationChanged(lastOrientation, mOrientation);
@@ -252,32 +289,22 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
 
   private void updateSoftInputWindowLayoutParameters() {
     final Window window = getWindow().getWindow();
-    // Override layout parameters to expand {@link SoftInputWindow} to the entire screen.
-    // See {@link InputMethodService#setinputView(View)} and
-    // {@link SoftInputWindow#updateWidthHeight(WindowManager.LayoutParams)}.
     updateLayoutHeightOf(window, ViewGroup.LayoutParams.MATCH_PARENT);
-    // This method may be called before {@link #setInputView(View)}.
-    if (mInputViewContainer != null) {
-      // In non-fullscreen mode, {@link InputView} and its parent inputArea should expand to
-      // the entire screen and be placed at the bottom of {@link SoftInputWindow}.
-      // In fullscreen mode, these shouldn't expand to the entire screen and should be
-      // coexistent with {@link #mExtractedArea} above.
-      // See {@link InputMethodService#setInputView(View) and
-      // com.android.internal.R.layout.input_method.xml.
+    if (mInputViewContainer!= null) {
       final View inputArea = window.findViewById(android.R.id.inputArea);
 
       updateLayoutHeightOf(
-          (View) inputArea.getParent(),
-          isFullscreenMode()
-              ? ViewGroup.LayoutParams.MATCH_PARENT
-              : ViewGroup.LayoutParams.WRAP_CONTENT);
+              (View) inputArea.getParent(),
+              isFullscreenMode()
+                      ? ViewGroup.LayoutParams.MATCH_PARENT
+                      : ViewGroup.LayoutParams.WRAP_CONTENT);
       updateLayoutGravityOf((View) inputArea.getParent(), Gravity.BOTTOM);
     }
   }
 
   private static void updateLayoutHeightOf(final Window window, final int layoutHeight) {
     final WindowManager.LayoutParams params = window.getAttributes();
-    if (params != null && params.height != layoutHeight) {
+    if (params!= null && params.height!= layoutHeight) {
       params.height = layoutHeight;
       window.setAttributes(params);
     }
@@ -285,7 +312,7 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
 
   private static void updateLayoutHeightOf(final View view, final int layoutHeight) {
     final ViewGroup.LayoutParams params = view.getLayoutParams();
-    if (params != null && params.height != layoutHeight) {
+    if (params!= null && params.height!= layoutHeight) {
       params.height = layoutHeight;
       view.setLayoutParams(params);
     }
@@ -295,19 +322,19 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
     final ViewGroup.LayoutParams lp = view.getLayoutParams();
     if (lp instanceof LinearLayout.LayoutParams) {
       final LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) lp;
-      if (params.gravity != layoutGravity) {
+      if (params.gravity!= layoutGravity) {
         params.gravity = layoutGravity;
         view.setLayoutParams(params);
       }
     } else if (lp instanceof FrameLayout.LayoutParams) {
       final FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) lp;
-      if (params.gravity != layoutGravity) {
+      if (params.gravity!= layoutGravity) {
         params.gravity = layoutGravity;
         view.setLayoutParams(params);
       }
     } else {
       throw new IllegalArgumentException(
-          "Layout parameter doesn't have gravity: " + lp.getClass().getName());
+              "Layout parameter doesn't have gravity: " + lp.getClass().getName());
     }
   }
 
@@ -319,7 +346,7 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
 
   protected final void setupInputViewWatermark() {
     final InputViewBinder inputView = getInputView();
-    if (inputView != null) {
+    if (inputView!= null) {
       inputView.setWatermark(generateWatermark());
     }
   }
@@ -327,16 +354,14 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
   @SuppressLint("InflateParams")
   protected KeyboardViewContainerView createInputViewContainer() {
     return (KeyboardViewContainerView)
-        getLayoutInflater().inflate(R.layout.main_keyboard_layout, null);
+            getLayoutInflater().inflate(R.layout.main_keyboard_layout, null);
   }
 
   @CallSuper
   protected boolean handleCloseRequest() {
-    // meaning, I didn't do anything with this request.
     return false;
   }
 
-  /** This will ask the OS to hide all views of AnySoftKeyboard. */
   @Override
   public void hideWindow() {
     while (handleCloseRequest()) {
@@ -348,15 +373,16 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
   @Override
   public void onDestroy() {
     mInputSessionDisposables.dispose();
-    if (getInputView() != null) getInputView().onViewNotRequired();
+    if (getInputView()!= null) getInputView().onViewNotRequired();
     mInputView = null;
     if (mClipboardManager!= null) {
       mClipboardManager.removePrimaryClipChangedListener(this);
       Logger.d(TAG, "ClipboardManager listener removed.");
     }
-    // ADD THIS BLOCK
     if (mTextClassifier!= null) {
       mTextClassifier.close();
+      mTextClassifier = null;
+      Logger.d(TAG, "ClipboardTextClassifier closed.");
     }
     super.onDestroy();
   }
@@ -383,7 +409,6 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
     return connection.getExtractedText(EXTRACTED_TEXT_REQUEST, 0);
   }
 
-  // TODO SHOULD NOT USE THIS METHOD AT ALL!
   protected int getCursorPosition() {
     if (isSelectionUpdateDelayed()) {
       ExtractedText extracted = getExtractedText();
@@ -398,27 +423,36 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
 
   @Override
   public void onUpdateSelection(
-      int oldSelStart,
-      int oldSelEnd,
-      int newSelStart,
-      int newSelEnd,
-      int candidatesStart,
-      int candidatesEnd) {
+          int oldSelStart,
+          int oldSelEnd,
+          int newSelStart,
+          int newSelEnd,
+          int candidatesStart,
+          int candidatesEnd) {
     if (BuildConfig.DEBUG) {
       Logger.d(
-          TAG,
-          "onUpdateSelection: oss=%d, ose=%d, nss=%d, nse=%d, cs=%d, ce=%d",
-          oldSelStart,
-          oldSelEnd,
-          newSelStart,
-          newSelEnd,
-          candidatesStart,
-          candidatesEnd);
+              TAG,
+              "onUpdateSelection: oss=%d, ose=%d, nss=%d, nse=%d, cs=%d, ce=%d",
+              oldSelStart,
+              oldSelEnd,
+              newSelStart,
+              newSelEnd,
+              candidatesStart,
+              candidatesEnd);
     }
     mGlobalCursorPositionDangerous = newSelEnd;
     mGlobalSelectionStartPositionDangerous = newSelStart;
     mGlobalCandidateStartPositionDangerous = candidatesStart;
     mGlobalCandidateEndPositionDangerous = candidatesEnd;
+  }
+
+  @Override
+  public void onPress(int primaryCode) {
+    // This method is part of the OnKeyboardActionListener interface.
+    // We hide our suggestions as soon as the user touches a key.
+    if (mAppSuggestionsContainer!= null && mAppSuggestionsContainer.getVisibility() == View.VISIBLE) {
+      hideAppSuggestions();
+    }
   }
 
   @Override
