@@ -17,19 +17,24 @@
 package com.anysoftkeyboard.ime;
 
 import android.annotation.SuppressLint;
-
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.res.Configuration;
 import android.graphics.drawable.Drawable;
 import android.inputmethodservice.InputMethodService;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.util.Pair;
 import android.view.Gravity;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -39,6 +44,7 @@ import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 import androidx.annotation.CallSuper;
@@ -54,23 +60,17 @@ import com.menny.android.anysoftkeyboard.AnyApplication;
 import com.menny.android.anysoftkeyboard.BuildConfig;
 import com.menny.android.anysoftkeyboard.R;
 import io.reactivex.disposables.CompositeDisposable;
-// Add these imports at the top of AnySoftKeyboardBase.java
-import android.view.LayoutInflater;
-import android.widget.ImageView;
-import android.net.Uri; // This is needed for the IntentMapper class you just created
-
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import android.content.ClipData;
-import android.content.ClipboardManager;
-import android.content.Context;
-import android.util.Pair;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public abstract class AnySoftKeyboardBase extends InputMethodService
         implements OnKeyboardActionListener, ClipboardManager.OnPrimaryClipChangedListener {
   protected static final String TAG = "ASK";
   protected static final String AI_RESULTS_TAG = "ASK_AI_RESULTS";
-
   protected static final long ONE_FRAME_DELAY = 1000L / 60L;
 
   private static final ExtractedTextRequest EXTRACTED_TEXT_REQUEST = new ExtractedTextRequest();
@@ -82,17 +82,20 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
   private ClipboardTextClassifier mTextClassifier;
   private ViewGroup mAppSuggestionsContainer;
   private View mCandidateView;
-  private Handler mHandler; // Handler to post UI updates to the main thread
+  private Handler mHandler;
   private String mCopiedText;
+
+  // Phase 4: Personalization components
+  private AppDatabase mDatabase;
+  private ExecutorService mDbExecutor;
+
   protected int mGlobalCursorPositionDangerous = 0;
   protected int mGlobalSelectionStartPositionDangerous = 0;
   protected int mGlobalCandidateStartPositionDangerous = 0;
   protected int mGlobalCandidateEndPositionDangerous = 0;
 
-  protected final ModifierKeyState mShiftKeyState =
-          new ModifierKeyState(true /*supports locked state*/);
-  protected final ModifierKeyState mControlKeyState =
-          new ModifierKeyState(false /*does not support locked state*/);
+  protected final ModifierKeyState mShiftKeyState = new ModifierKeyState(true /*supports locked state*/);
+  protected final ModifierKeyState mControlKeyState = new ModifierKeyState(false /*does not support locked state*/);
 
   @NonNull protected final CompositeDisposable mInputSessionDisposables = new CompositeDisposable();
   private int mOrientation;
@@ -106,47 +109,33 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
             BuildConfig.VERSION_NAME,
             BuildConfig.VERSION_CODE);
     super.onCreate();
-    mHandler = new Handler(Looper.getMainLooper()); // Initialize the handler
+    mHandler = new Handler(Looper.getMainLooper());
     mOrientation = getResources().getConfiguration().orientation;
-    if (!BuildConfig.DEBUG && DeveloperUtils.hasTracingRequested(getApplicationContext())) {
-      try {
-        DeveloperUtils.startTracing();
-        Toast.makeText(getApplicationContext(), R.string.debug_tracing_starting, Toast.LENGTH_SHORT)
-                .show();
-      } catch (Exception e) {
-        e.printStackTrace();
-        Toast.makeText(
-                        getApplicationContext(), R.string.debug_tracing_starting_failed, Toast.LENGTH_LONG)
-                .show();
-      }
-    }
 
     mInputMethodManager = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
     Logger.d(TAG, "Initializing ClipboardManager and listener.");
     mClipboardManager = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-    if (mClipboardManager!= null) {
+    if (mClipboardManager != null) {
       mClipboardManager.addPrimaryClipChangedListener(this);
     }
 
-    mTextClassifier = new ClipboardTextClassifier(this, "distilbert_metadata_please_work.tflite", results -> {
-      // This is the callback that receives the AI results.
-      // We now pass these results to our UI method on the main UI thread.
-      if (mHandler!= null) {
-        mHandler.post(() -> showAppSuggestions(results));
-      }
-    });
+    mTextClassifier = new ClipboardTextClassifier(this, "distilbert_metadata_please_work.tflite", this::showAppSuggestions);
+
+    // Phase 4: Initialize database and executor
+    mDatabase = AppDatabase.getDatabase(this);
+    mDbExecutor = Executors.newSingleThreadExecutor();
   }
 
   @Override
   public void onPrimaryClipChanged() {
-    if (mClipboardManager!= null && mClipboardManager.hasPrimaryClip()) {
+    if (mClipboardManager != null && mClipboardManager.hasPrimaryClip()) {
       ClipData clipData = mClipboardManager.getPrimaryClip();
-      if (clipData!= null && clipData.getItemCount() > 0) {
+      if (clipData != null && clipData.getItemCount() > 0) {
         CharSequence copiedSequence = clipData.getItemAt(0).getText();
-        if (copiedSequence!= null) {
-          mCopiedText = copiedSequence.toString(); // Store the copied text
+        if (copiedSequence != null) {
+          mCopiedText = copiedSequence.toString();
           Logger.d(TAG, "New primary clip detected. Text: '" + mCopiedText + "'. Classifying...");
-          if (mTextClassifier!= null) {
+          if (mTextClassifier != null) {
             mTextClassifier.classify(mCopiedText);
           }
         }
@@ -154,13 +143,8 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
     }
   }
 
-  // Other imports are already correct in your file.
-
-
-// ... inside the AnySoftKeyboardBase class
-
   private void showAppSuggestions(List<Pair<String, Float>> results) {
-    if (results == null || results.isEmpty()) {
+    if (results == null || results.isEmpty() || mCopiedText == null) {
       hideAppSuggestions();
       return;
     }
@@ -188,74 +172,99 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
       return;
     }
 
-    Logger.d(AI_RESULTS_TAG, "Top result '" + topResult.first + "' is over threshold (" + topResult.second + "). Attempting to find apps.");
+    Logger.d(AI_RESULTS_TAG, "Top result '" + topResult.first + "' is over threshold. Finding and ranking apps.");
 
-    // Prepare the UI
-    if (mCandidateView != null) mCandidateView.setVisibility(View.GONE);
-    if (mAppSuggestionsContainer == null) {
-      return; // Can't do anything if the container is missing.
-    }
-    mAppSuggestionsContainer.removeAllViews();
-    mAppSuggestionsContainer.setVisibility(View.VISIBLE);
+    final Pair<String, Float> finalTopResult = topResult;
+    // Run database and package manager queries on a background thread
+    mDbExecutor.execute(() -> {
+      // Get ranked package names from DB
+      List<String> rankedPackages = mDatabase.usageDao().getRankedAppsForCategory(finalTopResult.first);
 
-    PackageManager pm = getPackageManager();
-    LayoutInflater inflater = LayoutInflater.from(this);
-    // Use a HashSet to ensure we only add one icon per app package.
-    HashSet<String> addedPackages = new HashSet<>();
+      // Your existing logic to get all relevant apps
+      PackageManager pm = getPackageManager();
+      HashSet<String> addedPackages = new HashSet<>();
+      ArrayList<ResolveInfo> allActivities = new ArrayList<>();
 
-    // --- START OF THE TRULY GENERIC SOLUTION ---
-
-    // Step 1: Handle the primary intent (e.g., ACTION_VIEW for address, url, and the primary for phone)
-    Intent primaryIntent = IntentMapper.mapCategoryToIntent(topResult.first, mCopiedText);
-    if (primaryIntent == null) {
-      Logger.w(AI_RESULTS_TAG, "IntentMapper returned null for category: " + topResult.first);
-      hideAppSuggestions();
-      return;
-    }
-
-    List<ResolveInfo> primaryActivities = pm.queryIntentActivities(primaryIntent, 0);
-    for (ResolveInfo resolveInfo : primaryActivities) {
-      if (mAppSuggestionsContainer.getChildCount() >= 5) break;
-      if (addedPackages.add(resolveInfo.activityInfo.packageName)) {
-        ImageView iconView = (ImageView) inflater.inflate(R.layout.suggestion_app_icon, mAppSuggestionsContainer, false);
-        iconView.setImageDrawable(resolveInfo.loadIcon(pm));
-        // This listener uses the primaryIntent, which is correct for this group of apps.
-        iconView.setOnClickListener(v -> launchApp(resolveInfo, primaryIntent));
-        mAppSuggestionsContainer.addView(iconView);
-      }
-    }
-
-    // Step 2: If it's a phone number, ALSO handle the secondary messaging intent.
-    if (topResult.first.equals("phone")) {
-      Intent messagingIntent = new Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + mCopiedText));
-      List<ResolveInfo> messagingActivities = pm.queryIntentActivities(messagingIntent, 0);
-
-      for (ResolveInfo resolveInfo : messagingActivities) {
-        if (mAppSuggestionsContainer.getChildCount() >= 5) break;
-        // Check if we already added this package (e.g., from the ACTION_VIEW list)
-        if (addedPackages.add(resolveInfo.activityInfo.packageName)) {
-          ImageView iconView = (ImageView) inflater.inflate(R.layout.suggestion_app_icon, mAppSuggestionsContainer, false);
-          iconView.setImageDrawable(resolveInfo.loadIcon(pm));
-          // This listener correctly uses the messagingIntent for this group of apps.
-          iconView.setOnClickListener(v -> launchApp(resolveInfo, messagingIntent));
-          mAppSuggestionsContainer.addView(iconView);
+      Intent primaryIntent = IntentMapper.mapCategoryToIntent(finalTopResult.first, mCopiedText);
+      if (primaryIntent != null) {
+        List<ResolveInfo> primaryActivities = pm.queryIntentActivities(primaryIntent, 0);
+        for (ResolveInfo info : primaryActivities) {
+          if (addedPackages.add(info.activityInfo.packageName)) {
+            allActivities.add(info);
+          }
         }
       }
-    }
-    // --- END OF THE TRULY GENERIC SOLUTION ---
 
-    Logger.i(AI_RESULTS_TAG, "Found a total of " + mAppSuggestionsContainer.getChildCount() + " unique activities.");
+      if (finalTopResult.first.equals("phone")) {
+        Intent messagingIntent = new Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + mCopiedText));
+        List<ResolveInfo> messagingActivities = pm.queryIntentActivities(messagingIntent, 0);
+        for (ResolveInfo info : messagingActivities) {
+          if (addedPackages.add(info.activityInfo.packageName)) {
+            allActivities.add(info);
+          }
+        }
+      }
 
-    // If, after all that, we have no icons to show, hide the bar.
-    if (mAppSuggestionsContainer.getChildCount() == 0) {
-      hideAppSuggestions();
-    }
+      if (!allActivities.isEmpty()) {
+        // Sort the combined list of activities based on our database ranking
+        Collections.sort(allActivities, (a, b) -> {
+          int indexA = rankedPackages.indexOf(a.activityInfo.packageName);
+          int indexB = rankedPackages.indexOf(b.activityInfo.packageName);
+          // If a package is not in the list, it gets a lower priority (higher index)
+          if (indexA == -1) indexA = Integer.MAX_VALUE;
+          if (indexB == -1) indexB = Integer.MAX_VALUE;
+          return Integer.compare(indexA, indexB);
+        });
+
+        // Update the UI on the main thread with the sorted list
+        mHandler.post(() -> {
+          if (mCandidateView != null) mCandidateView.setVisibility(View.GONE);
+          if (mAppSuggestionsContainer != null) {
+            mAppSuggestionsContainer.removeAllViews();
+            mAppSuggestionsContainer.setVisibility(View.VISIBLE);
+
+            LayoutInflater inflater = LayoutInflater.from(this);
+            for (ResolveInfo resolveInfo : allActivities) {
+              if (mAppSuggestionsContainer.getChildCount() >= 5) break;
+
+              // Determine the correct intent for this specific app
+              Intent launchIntent;
+              if (finalTopResult.first.equals("phone")) {
+                // A simple check: if the package name suggests messaging, use the SENDTO intent
+                String pkg = resolveInfo.activityInfo.packageName.toLowerCase();
+                if (pkg.contains("mms") || pkg.contains("messaging") || pkg.contains("whatsapp") || pkg.contains("telegram") || pkg.contains("signal")) {
+                  launchIntent = new Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + mCopiedText));
+                } else {
+                  launchIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("tel:" + mCopiedText));
+                }
+              } else {
+                launchIntent = IntentMapper.mapCategoryToIntent(finalTopResult.first, mCopiedText);
+              }
+
+              ImageView iconView = (ImageView) inflater.inflate(R.layout.suggestion_app_icon, mAppSuggestionsContainer, false);
+              iconView.setImageDrawable(resolveInfo.loadIcon(pm));
+              iconView.setOnClickListener(v -> launchApp(resolveInfo, launchIntent, finalTopResult.first));
+              mAppSuggestionsContainer.addView(iconView);
+            }
+          }
+        });
+      } else {
+        mHandler.post(this::hideAppSuggestions);
+      }
+    });
   }
 
+  // Add the 'final' keyword to the category parameter to fix the lambda error.
+  private void launchApp(ResolveInfo appInfo, Intent intent, final String category) {
+    // Phase 4: Log the user's choice to the database in the background
+    mDbExecutor.execute(() -> {
+      UsageStat stat = new UsageStat();
+      stat.textCategory = category;
+      stat.chosenAppPackage = appInfo.activityInfo.packageName;
+      mDatabase.usageDao().insert(stat);
+      Logger.d(TAG, "Logged usage: " + category + " -> " + appInfo.activityInfo.packageName);
+    });
 
-
-
-  private void launchApp(ResolveInfo appInfo, Intent intent) {
     Intent launchIntent = new Intent(intent);
     launchIntent.setClassName(appInfo.activityInfo.packageName, appInfo.activityInfo.name);
     launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -265,29 +274,44 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
       Logger.e(TAG, "Failed to launch app: " + appInfo.activityInfo.packageName, e);
       Toast.makeText(this, "Could not launch app", Toast.LENGTH_SHORT).show();
     }
-    hideAppSuggestions(); // Hide suggestions after launching an app
+    hideAppSuggestions();
   }
+
   private void hideAppSuggestions() {
-    // Show the normal word suggestions and hide our app suggestions
-    if (mAppSuggestionsContainer!= null) mAppSuggestionsContainer.setVisibility(View.GONE);
-    if (mCandidateView!= null) mCandidateView.setVisibility(View.VISIBLE);
+    if (mAppSuggestionsContainer != null) mAppSuggestionsContainer.setVisibility(View.GONE);
+    if (mCandidateView != null) mCandidateView.setVisibility(View.VISIBLE);
+  }
+
+  @Override
+  public void onDestroy() {
+    super.onDestroy();
+    mInputSessionDisposables.dispose();
+    if (getInputView() != null) getInputView().onViewNotRequired();
+    mInputView = null;
+    if (mClipboardManager != null) {
+      mClipboardManager.removePrimaryClipChangedListener(this);
+      Logger.d(TAG, "ClipboardManager listener removed.");
+    }
+    if (mTextClassifier != null) {
+      mTextClassifier.close();
+      mTextClassifier = null;
+      Logger.d(TAG, "ClipboardTextClassifier closed.");
+    }
+    // Phase 4: Shutdown the database executor
+    if (mDbExecutor != null && !mDbExecutor.isShutdown()) {
+      mDbExecutor.shutdown();
+    }
   }
 
   @Nullable
-  public final InputViewBinder getInputView() {
-    return mInputView;
-  }
+  public final InputViewBinder getInputView() { return mInputView; }
 
   @Nullable
-  public KeyboardViewContainerView getInputViewContainer() {
-    return mInputViewContainer;
-  }
+  public KeyboardViewContainerView getInputViewContainer() { return mInputViewContainer; }
 
   protected abstract String getSettingsInputMethodId();
 
-  protected InputMethodManager getInputMethodManager() {
-    return mInputMethodManager;
-  }
+  protected InputMethodManager getInputMethodManager() { return mInputMethodManager; }
 
   @Override
   public void onComputeInsets(@NonNull Insets outInsets) {
@@ -377,7 +401,6 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
   }
 
   protected int getCurrentOrientation() {
-    // must use the current configuration, since mOrientation may lag a bit.
     return getResources().getConfiguration().orientation;
   }
 
@@ -467,22 +490,6 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
     super.hideWindow();
   }
 
-  @Override
-  public void onDestroy() {
-    mInputSessionDisposables.dispose();
-    if (getInputView()!= null) getInputView().onViewNotRequired();
-    mInputView = null;
-    if (mClipboardManager!= null) {
-      mClipboardManager.removePrimaryClipChangedListener(this);
-      Logger.d(TAG, "ClipboardManager listener removed.");
-    }
-    if (mTextClassifier!= null) {
-      mTextClassifier.close();
-      mTextClassifier = null;
-      Logger.d(TAG, "ClipboardTextClassifier closed.");
-    }
-    super.onDestroy();
-  }
 
   @Override
   @CallSuper
@@ -545,8 +552,6 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
 
   @Override
   public void onPress(int primaryCode) {
-    // This method is part of the OnKeyboardActionListener interface.
-    // We hide our suggestions as soon as the user touches a key.
     if (mAppSuggestionsContainer!= null && mAppSuggestionsContainer.getVisibility() == View.VISIBLE) {
       hideAppSuggestions();
     }
@@ -554,7 +559,6 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
 
   @Override
   public void onCancel() {
-    // the user released their finger outside of any key... okay. I have nothing to do about
-    // that.
+    // the user released their finger outside of any key... okay. I have nothing to do about that.
   }
 }
