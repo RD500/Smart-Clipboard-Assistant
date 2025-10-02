@@ -50,3 +50,5 @@ node_modules
 
 #bazel
 /bazel-*
+
+ime/app/src/main/assets/distilbert_metadata_please_work.tflite
