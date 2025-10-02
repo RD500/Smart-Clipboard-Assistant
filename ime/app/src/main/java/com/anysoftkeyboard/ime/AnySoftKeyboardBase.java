@@ -17,6 +17,10 @@
 package com.anysoftkeyboard.ime;
 
 import android.annotation.SuppressLint;
+
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.content.res.Configuration;
 import android.graphics.drawable.Drawable;
 import android.inputmethodservice.InputMethodService;
@@ -50,7 +54,12 @@ import com.menny.android.anysoftkeyboard.AnyApplication;
 import com.menny.android.anysoftkeyboard.BuildConfig;
 import com.menny.android.anysoftkeyboard.R;
 import io.reactivex.disposables.CompositeDisposable;
+// Add these imports at the top of AnySoftKeyboardBase.java
+import android.view.LayoutInflater;
+import android.widget.ImageView;
+import android.net.Uri; // This is needed for the IntentMapper class you just created
 
+import java.util.HashSet;
 import java.util.List;
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -74,7 +83,7 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
   private ViewGroup mAppSuggestionsContainer;
   private View mCandidateView;
   private Handler mHandler; // Handler to post UI updates to the main thread
-
+  private String mCopiedText;
   protected int mGlobalCursorPositionDangerous = 0;
   protected int mGlobalSelectionStartPositionDangerous = 0;
   protected int mGlobalCandidateStartPositionDangerous = 0;
@@ -133,14 +142,22 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
     if (mClipboardManager!= null && mClipboardManager.hasPrimaryClip()) {
       ClipData clipData = mClipboardManager.getPrimaryClip();
       if (clipData!= null && clipData.getItemCount() > 0) {
-        CharSequence copiedText = clipData.getItemAt(0).getText();
-        if (copiedText!= null && mTextClassifier!= null) {
-          Logger.d(TAG, "New primary clip detected. Text: '" + copiedText + "'. Classifying...");
-          mTextClassifier.classify(copiedText.toString());
+        CharSequence copiedSequence = clipData.getItemAt(0).getText();
+        if (copiedSequence!= null) {
+          mCopiedText = copiedSequence.toString(); // Store the copied text
+          Logger.d(TAG, "New primary clip detected. Text: '" + mCopiedText + "'. Classifying...");
+          if (mTextClassifier!= null) {
+            mTextClassifier.classify(mCopiedText);
+          }
         }
       }
     }
   }
+
+  // Other imports are already correct in your file.
+
+
+// ... inside the AnySoftKeyboardBase class
 
   private void showAppSuggestions(List<Pair<String, Float>> results) {
     if (results == null || results.isEmpty()) {
@@ -148,28 +165,108 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
       return;
     }
 
-    Pair<String, Float> topResult = results.get(0);
-    // We'll only show suggestions if the confidence is high (e.g., > 80%)
-    // and it's not just plain text.
-    boolean shouldShow = topResult.second > 0.8 &&!topResult.first.equals("plain_text");
+    Pair<String, Float> topResult = null;
+    float maxScore = -1.0f;
+    for (Pair<String, Float> result : results) {
+      if (result.second > maxScore) {
+        maxScore = result.second;
+        topResult = result;
+      }
+    }
 
-    if (shouldShow) {
-      // Hide the normal word suggestions and show our app suggestions
-      if (mCandidateView!= null) mCandidateView.setVisibility(View.GONE);
-      if (mAppSuggestionsContainer!= null) mAppSuggestionsContainer.setVisibility(View.VISIBLE);
+    if (topResult == null) {
+      hideAppSuggestions();
+      return;
+    }
 
-      // --- Placeholder for Phase 3 ---
-      // In the next phase, we will add code here to:
-      // 1. Get the top category (e.g., "address").
-      // 2. Find apps on the device that can handle an address.
-      // 3. Create ImageViews for each app and add them to mAppSuggestionsContainer.
-      // For now, we are just making the container visible.
+    boolean shouldShow = topResult.second > 0.8 && !topResult.first.equals("plain_text");
+    if (!shouldShow) {
+      if (topResult.second <= 0.8) {
+        Logger.d(AI_RESULTS_TAG, "Top result '" + topResult.first + "' was below threshold (" + topResult.second + "). Hiding suggestions.");
+      }
+      hideAppSuggestions();
+      return;
+    }
 
-    } else {
+    Logger.d(AI_RESULTS_TAG, "Top result '" + topResult.first + "' is over threshold (" + topResult.second + "). Attempting to find apps.");
+
+    // Prepare the UI
+    if (mCandidateView != null) mCandidateView.setVisibility(View.GONE);
+    if (mAppSuggestionsContainer == null) {
+      return; // Can't do anything if the container is missing.
+    }
+    mAppSuggestionsContainer.removeAllViews();
+    mAppSuggestionsContainer.setVisibility(View.VISIBLE);
+
+    PackageManager pm = getPackageManager();
+    LayoutInflater inflater = LayoutInflater.from(this);
+    // Use a HashSet to ensure we only add one icon per app package.
+    HashSet<String> addedPackages = new HashSet<>();
+
+    // --- START OF THE TRULY GENERIC SOLUTION ---
+
+    // Step 1: Handle the primary intent (e.g., ACTION_VIEW for address, url, and the primary for phone)
+    Intent primaryIntent = IntentMapper.mapCategoryToIntent(topResult.first, mCopiedText);
+    if (primaryIntent == null) {
+      Logger.w(AI_RESULTS_TAG, "IntentMapper returned null for category: " + topResult.first);
+      hideAppSuggestions();
+      return;
+    }
+
+    List<ResolveInfo> primaryActivities = pm.queryIntentActivities(primaryIntent, 0);
+    for (ResolveInfo resolveInfo : primaryActivities) {
+      if (mAppSuggestionsContainer.getChildCount() >= 5) break;
+      if (addedPackages.add(resolveInfo.activityInfo.packageName)) {
+        ImageView iconView = (ImageView) inflater.inflate(R.layout.suggestion_app_icon, mAppSuggestionsContainer, false);
+        iconView.setImageDrawable(resolveInfo.loadIcon(pm));
+        // This listener uses the primaryIntent, which is correct for this group of apps.
+        iconView.setOnClickListener(v -> launchApp(resolveInfo, primaryIntent));
+        mAppSuggestionsContainer.addView(iconView);
+      }
+    }
+
+    // Step 2: If it's a phone number, ALSO handle the secondary messaging intent.
+    if (topResult.first.equals("phone")) {
+      Intent messagingIntent = new Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + mCopiedText));
+      List<ResolveInfo> messagingActivities = pm.queryIntentActivities(messagingIntent, 0);
+
+      for (ResolveInfo resolveInfo : messagingActivities) {
+        if (mAppSuggestionsContainer.getChildCount() >= 5) break;
+        // Check if we already added this package (e.g., from the ACTION_VIEW list)
+        if (addedPackages.add(resolveInfo.activityInfo.packageName)) {
+          ImageView iconView = (ImageView) inflater.inflate(R.layout.suggestion_app_icon, mAppSuggestionsContainer, false);
+          iconView.setImageDrawable(resolveInfo.loadIcon(pm));
+          // This listener correctly uses the messagingIntent for this group of apps.
+          iconView.setOnClickListener(v -> launchApp(resolveInfo, messagingIntent));
+          mAppSuggestionsContainer.addView(iconView);
+        }
+      }
+    }
+    // --- END OF THE TRULY GENERIC SOLUTION ---
+
+    Logger.i(AI_RESULTS_TAG, "Found a total of " + mAppSuggestionsContainer.getChildCount() + " unique activities.");
+
+    // If, after all that, we have no icons to show, hide the bar.
+    if (mAppSuggestionsContainer.getChildCount() == 0) {
       hideAppSuggestions();
     }
   }
 
+
+
+
+  private void launchApp(ResolveInfo appInfo, Intent intent) {
+    Intent launchIntent = new Intent(intent);
+    launchIntent.setClassName(appInfo.activityInfo.packageName, appInfo.activityInfo.name);
+    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+    try {
+      startActivity(launchIntent);
+    } catch (Exception e) {
+      Logger.e(TAG, "Failed to launch app: " + appInfo.activityInfo.packageName, e);
+      Toast.makeText(this, "Could not launch app", Toast.LENGTH_SHORT).show();
+    }
+    hideAppSuggestions(); // Hide suggestions after launching an app
+  }
   private void hideAppSuggestions() {
     // Show the normal word suggestions and hide our app suggestions
     if (mAppSuggestionsContainer!= null) mAppSuggestionsContainer.setVisibility(View.GONE);

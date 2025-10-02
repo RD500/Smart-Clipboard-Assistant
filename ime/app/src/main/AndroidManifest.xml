@@ -112,8 +112,40 @@
     </application>
 
     <queries>
-        <!-- any add-on that we support, must be declared here -->
+        <!--
+        ===============================================================
+        INTENTS FOR SMART CLIPBOARD ASSISTANT (Your feature)
+        ===============================================================
+        -->
+        <!-- Intent for showing a location on a map -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="geo" />
+        </intent>
+        <!-- Intent for opening a web URL -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <!-- Intent for dialing a phone number -->
+        <intent>
+            <!-- CORRECTED ACTION: Was ACTION_VIEW, now is ACTION_DIAL -->
+            <action android:name="android.intent.action.DIAL" />
+            <data android:scheme="tel" />
+        </intent>
+        <!-- Intent for sending an email -->
+        <intent>
+            <!-- CORRECTED ACTION: Was ACTION_VIEW, now is ACTION_SENDTO -->
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="mailto" />
+        </intent>
 
+        <!--
+        ===============================================================
+        INTENTS FOR ANYSOFTKEYBOARD ADD-ONS (Existing feature)
+        ===============================================================
+        -->
+        <!-- any add-on that we support, must be declared here -->
         <!-- keyboards -->
         <intent>
             <action android:name="com.menny.android.anysoftkeyboard.KEYBOARD" />
@@ -140,4 +172,7 @@
             <action android:name="android.view.InputMethod"/>
         </intent>
     </queries>
+
 </manifest>
+
+

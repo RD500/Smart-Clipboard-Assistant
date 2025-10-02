@@ -113,94 +113,63 @@ public class ClipboardTextClassifier {
     }
 
 
-
+    // In ClipboardTextClassifier.java
     public void classify(String text) {
-
         if (backgroundExecutor == null || backgroundExecutor.isShutdown()) {
-
             Log.w(TAG, "Background executor is not running. Cannot classify.");
-
             postEmptyResults();
-
             return;
-
         }
 
-
-
         backgroundExecutor.execute(() -> {
+            // Add a log to show the background task has started
+            Log.d(TAG, "Starting classification in background for text: '" + text + "'");
 
             if (bertClassifier == null) {
-
-                Log.w(TAG, "BertNLClassifier is null in classify. Attempting to set it up.");
-
-                setupClassifier(); // Attempt to re-initialize
-
-                if (bertClassifier == null) {
-
-                    Log.e(TAG, "BertNLClassifier could not be initialized for classify operation.");
-
-                    postEmptyResults();
-
-                    return;
-
-                }
-
+                Log.e(TAG, "BertNLClassifier is null. Cannot classify.");
+                postEmptyResults();
+                return;
             }
-
-
 
             List<Pair<String, Float>> classificationResultsList = new ArrayList<>();
-
             try {
-
                 // Perform classification using BertNLClassifier
-
                 List<Category> tfliteResults = bertClassifier.classify(text);
 
-
-
-                if (tfliteResults != null) {
+                // --- CRITICAL LOGGING ---
+                if (tfliteResults != null && !tfliteResults.isEmpty()) {
+                    Log.i(TAG, "Classification successful! Got " + tfliteResults.size() + " results.");
+                    StringBuilder resultsLog = new StringBuilder("Model results:\n");
 
                     for (Category category : tfliteResults) {
-
-                        // Category from TFLite Task Library has getLabel() and getScore()
-
                         String name = category.getLabel();
-
                         float scr = category.getScore();
-
+                        // Log each result individually to see the scores
+                        resultsLog.append(String.format("  - Label: %s, Score: %.4f\n", name, scr));
                         classificationResultsList.add(new Pair<>(name, scr));
-
                     }
-
+                    Log.d(TAG, resultsLog.toString());
+                } else {
+                    // This is likely what's happening
+                    Log.w(TAG, "Classification returned null or empty results from the model.");
                 }
+                // --- END OF CRITICAL LOGGING ---
 
             } catch (Exception e) {
-
                 Log.e(TAG, "Error during text classification: " + e.getMessage(), e);
-
-                // classificationResultsList will be empty or partially filled
-
+                // classificationResultsList will be empty, which is correct for an error state
             }
 
-
-
             // Post the results back to the main thread
-
             new Handler(Looper.getMainLooper()).post(() -> {
-
+                Log.d(TAG, "Posting " + classificationResultsList.size() + " results back to the listener.");
                 if (listener != null) {
-
                     listener.onClassificationResult(classificationResultsList);
-
                 }
-
             });
-
         });
-
     }
+
 
 
 
