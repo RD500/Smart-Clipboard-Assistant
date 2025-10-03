@@ -8,6 +8,6 @@ public class UsageStat {
     @PrimaryKey(autoGenerate = true)
     public int id;
 
-    public String textCategory; // e.g., "address"
-    public String chosenAppPackage; // e.g., "com.google.android.apps.maps"
+    public String textCategory;
+    public String chosenAppPackage;
 }

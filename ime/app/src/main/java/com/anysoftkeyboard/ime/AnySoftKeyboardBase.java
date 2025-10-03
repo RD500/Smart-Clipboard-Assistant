@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2016 Menny Even-Danan
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, Version2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -84,7 +84,7 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
   private Handler mHandler;
   private String mCopiedText;
 
-  // Phase 4: Personalization components
+
   private AppDatabase mDatabase;
   private ExecutorService mDbExecutor;
 
@@ -93,8 +93,10 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
   protected int mGlobalCandidateStartPositionDangerous = 0;
   protected int mGlobalCandidateEndPositionDangerous = 0;
 
-  protected final ModifierKeyState mShiftKeyState = new ModifierKeyState(true /*supports locked state*/);
-  protected final ModifierKeyState mControlKeyState = new ModifierKeyState(false /*does not support locked state*/);
+  protected final ModifierKeyState mShiftKeyState =
+          new ModifierKeyState(true );
+  protected final ModifierKeyState mControlKeyState =
+          new ModifierKeyState(false );
 
   @NonNull protected final CompositeDisposable mInputSessionDisposables = new CompositeDisposable();
   private int mOrientation;
@@ -120,7 +122,7 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
 
     mTextClassifier = new ClipboardTextClassifier(this, "model.tflite", this::showAppSuggestions);
 
-    // Phase 4: Initialize database and executor
+
     mDatabase = AppDatabase.getDatabase(this);
     mDbExecutor = Executors.newSingleThreadExecutor();
   }
@@ -165,110 +167,165 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
     boolean shouldShow = topResult.second > 0.8 && !topResult.first.equals("plain_text");
     if (!shouldShow) {
       if (topResult.second <= 0.8) {
-        Logger.d(AI_RESULTS_TAG, "Top result '" + topResult.first + "' was below threshold (" + topResult.second + "). Hiding suggestions.");
+        Logger.d(
+                AI_RESULTS_TAG,
+                "Top result '"
+                        + topResult.first
+                        + "' was below threshold ("
+                        + topResult.second
+                        + "). Hiding suggestions.");
       }
       hideAppSuggestions();
       return;
     }
 
-    Logger.d(AI_RESULTS_TAG, "Top result '" + topResult.first + "' is over threshold. Finding and ranking apps.");
+    Logger.d(
+            AI_RESULTS_TAG, "Top result '" + topResult.first + "' is over threshold. Finding and ranking apps.");
 
     final Pair<String, Float> finalTopResult = topResult;
-    // Run database and package manager queries on a background thread
-    mDbExecutor.execute(() -> {
-      // Get ranked package names from DB
-      List<String> rankedPackages = mDatabase.usageDao().getRankedAppsForCategory(finalTopResult.first);
+    mDbExecutor.execute(
+            () -> {
+              List<String> rankedPackages =
+                      mDatabase.usageDao().getRankedAppsForCategory(finalTopResult.first);
 
-      // Your existing logic to get all relevant apps
-      PackageManager pm = getPackageManager();
-      HashSet<String> addedPackages = new HashSet<>();
-      ArrayList<ResolveInfo> allActivities = new ArrayList<>();
+              PackageManager pm = getPackageManager();
+              HashSet<String> addedPackages = new HashSet<>();
+              ArrayList<ResolveInfo> allActivities = new ArrayList<>();
 
-      Intent primaryIntent = IntentMapper.mapCategoryToIntent(finalTopResult.first, mCopiedText);
-      if (primaryIntent != null) {
-        List<ResolveInfo> primaryActivities = pm.queryIntentActivities(primaryIntent, 0);
-        for (ResolveInfo info : primaryActivities) {
-          if (addedPackages.add(info.activityInfo.packageName)) {
-            allActivities.add(info);
-          }
-        }
-      }
-      Intent messagingIntent = null;
-      if (finalTopResult.first.equals("phone")) {
-        messagingIntent = new Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + mCopiedText));
-        List<ResolveInfo> messagingActivities = pm.queryIntentActivities(messagingIntent, 0);
-        for (ResolveInfo info : messagingActivities) {
-          if (addedPackages.add(info.activityInfo.packageName)) {
-            allActivities.add(info);
-          }
-        }
-      }
+              Intent primaryIntent = IntentMapper.mapCategoryToIntent(finalTopResult.first, mCopiedText);
 
-      if (!allActivities.isEmpty()) {
-        // Sort the combined list of activities based on our database ranking
-        Collections.sort(allActivities, (a, b) -> {
-          int indexA = rankedPackages.indexOf(a.activityInfo.packageName);
-          int indexB = rankedPackages.indexOf(b.activityInfo.packageName);
-          // If a package is not in the list, it gets a lower priority (higher index)
-          if (indexA == -1) indexA = Integer.MAX_VALUE;
-          if (indexB == -1) indexB = Integer.MAX_VALUE;
-          return Integer.compare(indexA, indexB);
-        });
-        final Intent finalMessagingIntent = messagingIntent;
+              if (primaryIntent != null) {
 
-        // Update the UI on the main thread with the sorted list
-        mHandler.post(() -> {
-          if (mCandidateView != null) mCandidateView.setVisibility(View.GONE);
-          if (mAppSuggestionsContainer != null) {
-            mAppSuggestionsContainer.removeAllViews();
-            mAppSuggestionsContainer.setVisibility(View.VISIBLE);
+                if ("url".equals(finalTopResult.first)) {
+                  Logger.d(TAG, "URL category detected. Using robust query method to find all browsers.");
 
-            LayoutInflater inflater = LayoutInflater.from(this);
-            for (ResolveInfo resolveInfo : allActivities) {
-              if (mAppSuggestionsContainer.getChildCount() >= 5) break;
+                  Intent mainLauncherIntent = new Intent(Intent.ACTION_MAIN, null);
+                  mainLauncherIntent.addCategory(Intent.CATEGORY_LAUNCHER);
+                  List<ResolveInfo> allLauncherApps = pm.queryIntentActivities(mainLauncherIntent, 0);
 
-              // Determine the correct intent for this specific app
-              Intent intentToLaunch;
-              String pkg = resolveInfo.activityInfo.packageName.toLowerCase();
 
-              // If it's a known messaging app AND we have a messaging intent, use it.
-              if (finalMessagingIntent != null &&
-                      (pkg.contains("mms") || pkg.contains("messaging") || pkg.contains("whatsapp") || pkg.contains("telegram") || pkg.contains("signal"))) {
-                intentToLaunch = finalMessagingIntent;
-              } else {
-                // Otherwise, use the primary intent (for the Dialer, Browser, etc.).
-                intentToLaunch = primaryIntent;
+                  for (ResolveInfo launcherAppInfo : allLauncherApps) {
+                    Intent probeIntent = new Intent(primaryIntent);
+                    probeIntent.setPackage(launcherAppInfo.activityInfo.packageName);
+                    List<ResolveInfo> handlers = pm.queryIntentActivities(probeIntent, 0);
+                    if (!handlers.isEmpty()) {
+                      if (addedPackages.add(handlers.get(0).activityInfo.packageName)) {
+                        allActivities.add(handlers.get(0));
+                      }
+                    }
+                  }
+                } else {
+
+                  Logger.d(TAG, "Using direct query for category: " + finalTopResult.first);
+                  List<ResolveInfo> primaryActivities = pm.queryIntentActivities(primaryIntent, 0);
+                  for (ResolveInfo info : primaryActivities) {
+                    if (addedPackages.add(info.activityInfo.packageName)) {
+                      allActivities.add(info);
+                    }
+                  }
+                }
+
               }
 
-              ImageView iconView = (ImageView) inflater.inflate(R.layout.suggestion_app_icon, mAppSuggestionsContainer, false);
-              iconView.setImageDrawable(resolveInfo.loadIcon(pm));
-              iconView.setOnClickListener(v -> launchApp(resolveInfo,intentToLaunch, finalTopResult.first));
-              mAppSuggestionsContainer.addView(iconView);
-            }
-          }
-        });
-      } else {
-        mHandler.post(this::hideAppSuggestions);
-      }
-    });
+
+              Intent messagingIntent = null;
+              if (finalTopResult.first.equals("phone")) {
+                messagingIntent = new Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + mCopiedText));
+                List<ResolveInfo> messagingActivities = pm.queryIntentActivities(messagingIntent, 0);
+                for (ResolveInfo info : messagingActivities) {
+                  if (addedPackages.add(info.activityInfo.packageName)) {
+                    allActivities.add(info);
+                  }
+                }
+              }
+
+              if (!allActivities.isEmpty()) {
+
+                Collections.sort(
+                        allActivities,
+                        (a, b) -> {
+                          int indexA = rankedPackages.indexOf(a.activityInfo.packageName);
+                          int indexB = rankedPackages.indexOf(b.activityInfo.packageName);
+                          if (indexA == -1) indexA = Integer.MAX_VALUE;
+                          if (indexB == -1) indexB = Integer.MAX_VALUE;
+                          return Integer.compare(indexA, indexB);
+                        });
+
+                final Intent finalMessagingIntent = messagingIntent;
+                final Intent finalPrimaryIntent = primaryIntent;
+
+                mHandler.post(
+                        () -> {
+                          if (mCandidateView != null) mCandidateView.setVisibility(View.GONE);
+                          if (mAppSuggestionsContainer != null) {
+                            mAppSuggestionsContainer.removeAllViews();
+                            mAppSuggestionsContainer.setVisibility(View.VISIBLE);
+                            Logger.d(TAG, "Displaying " + allActivities.size() + " app suggestions.");
+
+                            LayoutInflater inflater = LayoutInflater.from(this);
+                            for (ResolveInfo resolveInfo : allActivities) {
+                              if (mAppSuggestionsContainer.getChildCount() >= 5) break;
+
+                              Intent intentToLaunch;
+                              String pkg = resolveInfo.activityInfo.packageName.toLowerCase();
+
+                              if (finalMessagingIntent != null
+                                      && (pkg.contains("mms")
+                                      || pkg.contains("messaging")
+                                      || pkg.contains("whatsapp")
+                                      || pkg.contains("telegram")
+                                      || pkg.contains("signal"))) {
+                                intentToLaunch = finalMessagingIntent;
+                              } else {
+                                intentToLaunch = finalPrimaryIntent;
+                              }
+
+                              ImageView iconView =
+                                      (ImageView)
+                                              inflater.inflate(
+                                                      R.layout.suggestion_app_icon, mAppSuggestionsContainer, false);
+                              iconView.setImageDrawable(resolveInfo.loadIcon(pm));
+
+                              iconView.setOnClickListener(
+                                      v -> launchApp(resolveInfo, intentToLaunch, finalTopResult.first));
+                              mAppSuggestionsContainer.addView(iconView);
+                            }
+                          }
+                        });
+              } else {
+                Logger.d(TAG, "No activities found after querying. Hiding suggestions.");
+                mHandler.post(this::hideAppSuggestions);
+              }
+            });
   }
 
-  // Add the 'final' keyword to the category parameter to fix the lambda error.
-  private void launchApp(ResolveInfo appInfo, Intent intent, final String category) {
-    // Phase 4: Log the user's choice to the database in the background
-    mDbExecutor.execute(() -> {
-      UsageStat stat = new UsageStat();
-      stat.textCategory = category;
-      stat.chosenAppPackage = appInfo.activityInfo.packageName;
-      mDatabase.usageDao().insert(stat);
-      Logger.d(TAG, "Logged usage: " + category + " -> " + appInfo.activityInfo.packageName);
-    });
 
-    Intent launchIntent = new Intent(intent);
-    launchIntent.setClassName(appInfo.activityInfo.packageName, appInfo.activityInfo.name);
-    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+  private void launchApp(ResolveInfo appInfo, Intent intent, final String category) {
+    mDbExecutor.execute(
+            () -> {
+              UsageStat stat = new UsageStat();
+              stat.textCategory = category;
+              stat.chosenAppPackage = appInfo.activityInfo.packageName;
+              mDatabase.usageDao().insert(stat);
+              Logger.d(TAG, "Logged usage: " + category + " -> " + appInfo.activityInfo.packageName);
+            });
+
+    Intent finalLaunchIntent;
+    if ("url".equals(category)) {
+      Intent chooserIntent =
+              Intent.createChooser(intent, getString(R.string.chooser_title_open_url_with));
+      chooserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+      finalLaunchIntent = chooserIntent;
+    } else {
+      Intent specificAppIntent = new Intent(intent);
+      specificAppIntent.setClassName(
+              appInfo.activityInfo.packageName, appInfo.activityInfo.name);
+      specificAppIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+      finalLaunchIntent = specificAppIntent;
+    }
+
     try {
-      startActivity(launchIntent);
+      startActivity(finalLaunchIntent);
     } catch (Exception e) {
       Logger.e(TAG, "Failed to launch app: " + appInfo.activityInfo.packageName, e);
       Toast.makeText(this, "Could not launch app", Toast.LENGTH_SHORT).show();
@@ -296,21 +353,25 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
       mTextClassifier = null;
       Logger.d(TAG, "ClipboardTextClassifier closed.");
     }
-    // Phase 4: Shutdown the database executor
     if (mDbExecutor != null && !mDbExecutor.isShutdown()) {
       mDbExecutor.shutdown();
     }
   }
 
-  @Nullable
-  public final InputViewBinder getInputView() { return mInputView; }
+  @Nullable public final InputViewBinder getInputView() {
+    return mInputView;
+  }
 
   @Nullable
-  public KeyboardViewContainerView getInputViewContainer() { return mInputViewContainer; }
+  public KeyboardViewContainerView getInputViewContainer() {
+    return mInputViewContainer;
+  }
 
   protected abstract String getSettingsInputMethodId();
 
-  protected InputMethodManager getInputMethodManager() { return mInputMethodManager; }
+  protected InputMethodManager getInputMethodManager() {
+    return mInputMethodManager;
+  }
 
   @Override
   public void onComputeInsets(@NonNull Insets outInsets) {
@@ -357,7 +418,7 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
 
   @Override
   public View onCreateInputView() {
-    if (mInputView!= null) mInputView.onViewNotRequired();
+    if (mInputView != null) mInputView.onViewNotRequired();
     mInputView = null;
 
     GCUtils.getInstance()
@@ -392,7 +453,7 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
   public void onConfigurationChanged(Configuration newConfig) {
     ((AnyApplication) getApplication()).setNewConfigurationToAllAddOns(newConfig);
     super.onConfigurationChanged(newConfig);
-    if (newConfig.orientation!= mOrientation) {
+    if (newConfig.orientation != mOrientation) {
       var lastOrientation = mOrientation;
       mOrientation = newConfig.orientation;
       onOrientationChanged(lastOrientation, mOrientation);
@@ -409,7 +470,7 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
   private void updateSoftInputWindowLayoutParameters() {
     final Window window = getWindow().getWindow();
     updateLayoutHeightOf(window, ViewGroup.LayoutParams.MATCH_PARENT);
-    if (mInputViewContainer!= null) {
+    if (mInputViewContainer != null) {
       final View inputArea = window.findViewById(android.R.id.inputArea);
 
       updateLayoutHeightOf(
@@ -423,7 +484,7 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
 
   private static void updateLayoutHeightOf(final Window window, final int layoutHeight) {
     final WindowManager.LayoutParams params = window.getAttributes();
-    if (params!= null && params.height!= layoutHeight) {
+    if (params != null && params.height != layoutHeight) {
       params.height = layoutHeight;
       window.setAttributes(params);
     }
@@ -431,7 +492,7 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
 
   private static void updateLayoutHeightOf(final View view, final int layoutHeight) {
     final ViewGroup.LayoutParams params = view.getLayoutParams();
-    if (params!= null && params.height!= layoutHeight) {
+    if (params != null && params.height != layoutHeight) {
       params.height = layoutHeight;
       view.setLayoutParams(params);
     }
@@ -441,13 +502,13 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
     final ViewGroup.LayoutParams lp = view.getLayoutParams();
     if (lp instanceof LinearLayout.LayoutParams) {
       final LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) lp;
-      if (params.gravity!= layoutGravity) {
+      if (params.gravity != layoutGravity) {
         params.gravity = layoutGravity;
         view.setLayoutParams(params);
       }
     } else if (lp instanceof FrameLayout.LayoutParams) {
       final FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) lp;
-      if (params.gravity!= layoutGravity) {
+      if (params.gravity != layoutGravity) {
         params.gravity = layoutGravity;
         view.setLayoutParams(params);
       }
@@ -465,7 +526,7 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
 
   protected final void setupInputViewWatermark() {
     final InputViewBinder inputView = getInputView();
-    if (inputView!= null) {
+    if (inputView != null) {
       inputView.setWatermark(generateWatermark());
     }
   }
@@ -488,7 +549,6 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
     }
     super.hideWindow();
   }
-
 
   @Override
   @CallSuper
@@ -551,13 +611,14 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
 
   @Override
   public void onPress(int primaryCode) {
-    if (mAppSuggestionsContainer!= null && mAppSuggestionsContainer.getVisibility() == View.VISIBLE) {
+    if (mAppSuggestionsContainer != null
+            && mAppSuggestionsContainer.getVisibility() == View.VISIBLE) {
       hideAppSuggestions();
     }
   }
 
   @Override
   public void onCancel() {
-    // the user released their finger outside of any key... okay. I have nothing to do about that.
+
   }
 }

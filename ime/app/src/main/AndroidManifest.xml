@@ -11,12 +11,12 @@
     <!-- http://d.android.com/guide/practices/screens_support.html read about legacy. -->
 
     <uses-permission android:name="android.permission.VIBRATE" />
-    <!-- required for the user dictionary (long press a word in the suggestions bar) -->
+
     <uses-permission android:name="android.permission.READ_USER_DICTIONARY" />
     <uses-permission android:name="android.permission.WRITE_USER_DICTIONARY" />
-    <!-- REQUIRED FOR THE CONTACTS DICTIONARY -->
+
     <uses-permission android:name="android.permission.READ_CONTACTS" />
-    <!-- currently, only support touch and fake-touch devices -->
+
     <uses-feature android:name="android.hardware.faketouch" />
     <uses-feature
         android:name="android.hardware.touchscreen"
@@ -35,14 +35,7 @@
         android:theme="@style/Theme.AskApp"
         tools:ignore="GoogleAppIndexingWarning,UnusedAttribute">
 
-        <!-- used to backup the settings and SQL to the cloud -->
-        <!--
-        <meta-data
-            android:name="com.google.android.backup.api_key"
-            android:value="AEdPqrEAAAAILlrSpiqigog3iJt3BwYxzNXMUzqgGV_dJ1EPDQ"/>
-        -->
 
-        <!-- this is the IME with the pointer to the settings ui (xml/method) -->
         <service
             android:name=".SoftKeyboard"
             android:label="@string/ime_name"
@@ -58,10 +51,7 @@
                 android:resource="@xml/method" />
         </service>
 
-        <!-- ui activities -->
-        <!-- settings ui activities -->
-        <!-- this is just a proxy activity, it does nothing but direct to the actual setting activity
-        I use this, so I can 'disable' this activity at runtime, and so remove ASK from the launcher's icons -->
+
         <activity
             android:exported="true"
             android:name="com.menny.android.anysoftkeyboard.LauncherSettingsActivity"
@@ -94,7 +84,7 @@
             android:roundIcon="@mipmap/ic_launcher_round"
             android:theme="@style/Theme.AskApp.NoTitle.NoActionBar"
             android:windowSoftInputMode="adjustPan" />
-        <!-- ui when a crash happens -->
+
         <activity
             android:name="com.anysoftkeyboard.ui.SendBugReportUiActivity"
             android:icon="@mipmap/ic_launcher"
@@ -112,12 +102,7 @@
     </application>
 
     <queries>
-        <!--
-        ===============================================================
-        INTENTS FOR SMART CLIPBOARD ASSISTANT (Your feature)
-        ===============================================================
-        -->
-        <!-- Intent for showing a location on a map -->
+
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="geo" />
@@ -129,7 +114,7 @@
         </intent>
         <!-- Intent for dialing a phone number -->
         <intent>
-            <!-- CORRECTED ACTION: Was ACTION_VIEW, now is ACTION_DIAL -->
+
             <action android:name="android.intent.action.DIAL" />
             <data android:scheme="tel" />
         </intent>
@@ -140,18 +125,12 @@
         </intent>
         <!-- Intent for sending an email -->
         <intent>
-            <!-- CORRECTED ACTION: Was ACTION_VIEW, now is ACTION_SENDTO -->
+
             <action android:name="android.intent.action.SENDTO" />
             <data android:scheme="mailto" />
         </intent>
 
-        <!--
-        ===============================================================
-        INTENTS FOR ANYSOFTKEYBOARD ADD-ONS (Existing feature)
-        ===============================================================
-        -->
-        <!-- any add-on that we support, must be declared here -->
-        <!-- keyboards -->
+
         <intent>
             <action android:name="com.menny.android.anysoftkeyboard.KEYBOARD" />
         </intent>

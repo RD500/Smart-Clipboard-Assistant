@@ -14,15 +14,15 @@ import android.util.Pair;
 
 
 
-// Import TensorFlow Lite Task Library classes
+
 
 import org.tensorflow.lite.task.text.nlclassifier.BertNLClassifier;
 
-import org.tensorflow.lite.support.label.Category; // Note: This is from TFLite, not MediaPipe
+import org.tensorflow.lite.support.label.Category;
 
 
 
-import java.io.IOException; // For BertNLClassifier.createFromFile
+import java.io.IOException;
 
 import java.util.ArrayList;
 
@@ -36,7 +36,7 @@ import java.util.concurrent.Executors;
 
 public class ClipboardTextClassifier {
 
-    private static final String TAG = "ASK_TextClassifier_TFLite"; // Changed TAG for clarity
+    private static final String TAG = "ASK_TextClassifier_TFLite";
 
     private final String modelName;
 
@@ -46,7 +46,7 @@ public class ClipboardTextClassifier {
 
 
 
-    // Change this to the TFLite Task Library's BertNLClassifier
+
 
     private BertNLClassifier bertClassifier;
 
@@ -54,7 +54,7 @@ public class ClipboardTextClassifier {
 
 
 
-    // Listener interface remains the same
+
 
     public interface ClassificationListener {
 
@@ -68,7 +68,7 @@ public class ClipboardTextClassifier {
 
         this.context = context;
 
-        this.modelName = modelName; // This should be the name of your .tflite file in assets
+        this.modelName = modelName;
 
         this.listener = listener;
 
@@ -82,7 +82,7 @@ public class ClipboardTextClassifier {
 
         try {
 
-            // Close existing classifier before creating a new one, if any
+
 
             if (bertClassifier != null) {
 
@@ -90,19 +90,19 @@ public class ClipboardTextClassifier {
 
             }
 
-            // Create BertNLClassifier from the model file in assets
+
 
             bertClassifier = BertNLClassifier.createFromFile(context, modelName);
 
             Log.i(TAG, "BertNLClassifier setup successfully.");
 
-        } catch (IOException e) { // createFromFile throws IOException
+        } catch (IOException e) {
 
             Log.e(TAG, "Error setting up BertNLClassifier: " + e.getMessage(), e);
 
             bertClassifier = null;
 
-        } catch (Exception e) { // Catch broader exceptions just in case
+        } catch (Exception e) {
 
             Log.e(TAG, "Unexpected error setting up BertNLClassifier: " + e.getMessage(), e);
 
@@ -113,7 +113,7 @@ public class ClipboardTextClassifier {
     }
 
 
-    // In ClipboardTextClassifier.java
+
     public void classify(String text) {
         if (backgroundExecutor == null || backgroundExecutor.isShutdown()) {
             Log.w(TAG, "Background executor is not running. Cannot classify.");
@@ -122,7 +122,7 @@ public class ClipboardTextClassifier {
         }
 
         backgroundExecutor.execute(() -> {
-            // Add a log to show the background task has started
+
             Log.d(TAG, "Starting classification in background for text: '" + text + "'");
 
             if (bertClassifier == null) {
@@ -133,10 +133,10 @@ public class ClipboardTextClassifier {
 
             List<Pair<String, Float>> classificationResultsList = new ArrayList<>();
             try {
-                // Perform classification using BertNLClassifier
+
                 List<Category> tfliteResults = bertClassifier.classify(text);
 
-                // --- CRITICAL LOGGING ---
+
                 if (tfliteResults != null && !tfliteResults.isEmpty()) {
                     Log.i(TAG, "Classification successful! Got " + tfliteResults.size() + " results.");
                     StringBuilder resultsLog = new StringBuilder("Model results:\n");
@@ -144,23 +144,23 @@ public class ClipboardTextClassifier {
                     for (Category category : tfliteResults) {
                         String name = category.getLabel();
                         float scr = category.getScore();
-                        // Log each result individually to see the scores
+
                         resultsLog.append(String.format("  - Label: %s, Score: %.4f\n", name, scr));
                         classificationResultsList.add(new Pair<>(name, scr));
                     }
                     Log.d(TAG, resultsLog.toString());
                 } else {
-                    // This is likely what's happening
+
                     Log.w(TAG, "Classification returned null or empty results from the model.");
                 }
-                // --- END OF CRITICAL LOGGING ---
+
 
             } catch (Exception e) {
                 Log.e(TAG, "Error during text classification: " + e.getMessage(), e);
-                // classificationResultsList will be empty, which is correct for an error state
+
             }
 
-            // Post the results back to the main thread
+
             new Handler(Looper.getMainLooper()).post(() -> {
                 Log.d(TAG, "Posting " + classificationResultsList.size() + " results back to the listener.");
                 if (listener != null) {
@@ -197,7 +197,7 @@ public class ClipboardTextClassifier {
 
             backgroundExecutor.shutdown();
 
-            // Optional: Await termination if necessary, but shutdown() is often enough.
+
 
         }
 
@@ -205,12 +205,11 @@ public class ClipboardTextClassifier {
 
             try {
 
-                bertClassifier.close(); // Release TFLite resources
+                bertClassifier.close();
 
                 Log.i(TAG, "BertNLClassifier closed successfully.");
 
-            } catch (Exception e) { // BertNLClassifier.close() doesn't declare throwing checked exceptions
-
+            } catch (Exception e) {
                 Log.e(TAG, "Error closing BertNLClassifier: " + e.getMessage(), e);
 
             }

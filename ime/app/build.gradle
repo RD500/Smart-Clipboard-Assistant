@@ -1,4 +1,4 @@
-// --- 1. Define extra properties before applying apk_module.gradle ---
+
 plugins {
     id 'com.android.application'
     id 'kotlin-android'
@@ -133,7 +133,7 @@ dependencies {
     def room_version = "2.6.1"
     implementation "androidx.room:room-runtime:$room_version"
     annotationProcessor "androidx.room:room-compiler:$room_version"
-    // allAddOns have all the add-ons packs as dependencies
+
     rootProject.findProject(":addons").subprojects.forEach {
         if (it.name == 'pack') {
             allAddOnsImplementation it

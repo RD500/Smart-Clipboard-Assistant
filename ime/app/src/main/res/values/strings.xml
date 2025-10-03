@@ -7,6 +7,8 @@
     <string name="debug_tracing_starting_failed">Tracing initiating failed! Check logcat for
         details.
     </string>
+    <string name="chooser_title_open_url_with">Open with…</string>
+
     <string name="debug_tracing_finished">Tracing finished!\nTrace file is\u0020<xliff:g id="trace_file">%s</xliff:g></string>
 
     <string name="menu_about_item">About</string>
@@ -25,12 +27,12 @@
     <string name="language_grammar_settings_tile">Configure correction behavior and other dictionaries.</string>
     <string name="language_tweaks_settings_tile">Tweaks and more.</string>
 
-    <!-- UI root menu -->
+
     <string name="ui_root_tile">UI</string>
     <string name="ui_theme_settings_tile">Pick and configure keyboard themes.</string>
     <string name="ui_effects_settings_tile">Keyboard effects and experience.</string>
 
-    <!-- welcome -->
+
     
     <string name="search_market_for_keyboard_addons">Get more keyboards at the app store</string>
     <string name="search_market_for_quick_key_addons">Get more <i>Quick-Text</i> add-ons at the app store…</string>
@@ -38,7 +40,7 @@
     <string name="keyboard_theme_tweak_group">Tweaks</string>
     <string name="delete_button">Delete</string>
 
-    <!-- Indicates that a word has been added to the dictionary -->
+
     <string name="added_word">Saved:\u0020<xliff:g id="word">%s</xliff:g></string>
     <string name="revert_added_word_question">Remove\?</string>
     <string name="removed_word">Removed:\u0020<xliff:g id="word">%s</xliff:g></string>
@@ -47,7 +49,7 @@
 
     <string name="hint_click_for_inline_suggestions">Available auto-fill suggestions</string>
 
-    <!-- voice -->
+
     <string name="voice_input_not_installed_title">Voice Is Not Installed</string>
     <string name="voice_input_not_installed_text">Voice Input is not installed on your device.\nThat
         can be easily fixed: install it now from the app store.
@@ -58,16 +60,13 @@
         (com.google.android.voicesearch) in the app store. Sorry, voice input will not work on your
         device.
     </string>
-    <!-- Options menu -->
+
     <string name="change_ime">Change input method</string>
     <string name="override_dictionary">Override default dictionary</string>
-    <!-- Dictionary override strings -->
+
     <string name="override_dictionary_title">Override\u0020<xliff:g id="word">%s</xliff:g>\u0020dictionary</string>
 
-    <!-- Dictionary override toast messages -->
 
-
-    <!-- settings - effects-->
     <string name="gesture_settings">Gestures</string>
     <string name="effects_group">Effects</string>
     <string name="ime_settings">Keyboard settings</string>
@@ -672,9 +671,7 @@
         </i>
     </string>
 
-    <!-- User dictionary settings. The title of the dialog to add a new word to the user dictionary. -->
-    <!-- User dictionary settings. The title of the dialog to edit an existing word in the user dictionary. -->
-    <!-- User dictionary settings. The text to show when there are no user-defined words in the dictionary -->
+
     <string name="user_dict_settings_empty_text">You do not have any words in the user dictionary.
         You can add your first word now.
     </string>
@@ -737,10 +734,7 @@
     <string name="not_notification_permission_text">AnySoftKeyboard does not have your permission to post notifications. We might, rarely, need to notify you with critical issues (like crashes).</string>
     <string name="not_configured_with_just_click_here">Click here</string>
 
-    <!--  Strings for possible PreferenceActivity Back/Next buttons -->
 
-
-    <!-- Optional button to Skip a PreferenceActivity [CHAR LIMIT=20] -->
 
     <string name="word_editor_action_add_word">Add word</string>
     <string name="word_editor_action_backup_words">Backup</string>
