@@ -54,7 +54,6 @@ import com.anysoftkeyboard.base.utils.GCUtils;
 import com.anysoftkeyboard.base.utils.Logger;
 import com.anysoftkeyboard.keyboards.views.KeyboardViewContainerView;
 import com.anysoftkeyboard.keyboards.views.OnKeyboardActionListener;
-import com.anysoftkeyboard.ui.dev.DeveloperUtils;
 import com.anysoftkeyboard.utils.ModifierKeyState;
 import com.menny.android.anysoftkeyboard.AnyApplication;
 import com.menny.android.anysoftkeyboard.BuildConfig;
@@ -119,7 +118,7 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
       mClipboardManager.addPrimaryClipChangedListener(this);
     }
 
-    mTextClassifier = new ClipboardTextClassifier(this, "distilbert_metadata_please_work.tflite", this::showAppSuggestions);
+    mTextClassifier = new ClipboardTextClassifier(this, "model.tflite", this::showAppSuggestions);
 
     // Phase 4: Initialize database and executor
     mDatabase = AppDatabase.getDatabase(this);
@@ -194,9 +193,9 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
           }
         }
       }
-
+      Intent messagingIntent = null;
       if (finalTopResult.first.equals("phone")) {
-        Intent messagingIntent = new Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + mCopiedText));
+        messagingIntent = new Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + mCopiedText));
         List<ResolveInfo> messagingActivities = pm.queryIntentActivities(messagingIntent, 0);
         for (ResolveInfo info : messagingActivities) {
           if (addedPackages.add(info.activityInfo.packageName)) {
@@ -215,6 +214,7 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
           if (indexB == -1) indexB = Integer.MAX_VALUE;
           return Integer.compare(indexA, indexB);
         });
+        final Intent finalMessagingIntent = messagingIntent;
 
         // Update the UI on the main thread with the sorted list
         mHandler.post(() -> {
@@ -228,22 +228,21 @@ public abstract class AnySoftKeyboardBase extends InputMethodService
               if (mAppSuggestionsContainer.getChildCount() >= 5) break;
 
               // Determine the correct intent for this specific app
-              Intent launchIntent;
-              if (finalTopResult.first.equals("phone")) {
-                // A simple check: if the package name suggests messaging, use the SENDTO intent
-                String pkg = resolveInfo.activityInfo.packageName.toLowerCase();
-                if (pkg.contains("mms") || pkg.contains("messaging") || pkg.contains("whatsapp") || pkg.contains("telegram") || pkg.contains("signal")) {
-                  launchIntent = new Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + mCopiedText));
-                } else {
-                  launchIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("tel:" + mCopiedText));
-                }
+              Intent intentToLaunch;
+              String pkg = resolveInfo.activityInfo.packageName.toLowerCase();
+
+              // If it's a known messaging app AND we have a messaging intent, use it.
+              if (finalMessagingIntent != null &&
+                      (pkg.contains("mms") || pkg.contains("messaging") || pkg.contains("whatsapp") || pkg.contains("telegram") || pkg.contains("signal"))) {
+                intentToLaunch = finalMessagingIntent;
               } else {
-                launchIntent = IntentMapper.mapCategoryToIntent(finalTopResult.first, mCopiedText);
+                // Otherwise, use the primary intent (for the Dialer, Browser, etc.).
+                intentToLaunch = primaryIntent;
               }
 
               ImageView iconView = (ImageView) inflater.inflate(R.layout.suggestion_app_icon, mAppSuggestionsContainer, false);
               iconView.setImageDrawable(resolveInfo.loadIcon(pm));
-              iconView.setOnClickListener(v -> launchApp(resolveInfo, launchIntent, finalTopResult.first));
+              iconView.setOnClickListener(v -> launchApp(resolveInfo,intentToLaunch, finalTopResult.first));
               mAppSuggestionsContainer.addView(iconView);
             }
           }
