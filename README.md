@@ -24,9 +24,11 @@
     - [C. How to Install the App](#c-how-to-install-the-app)
 5. [How to Use the App](#5-how-to-use-the-app)
 6. [Technologies Used](#6-technologies-used)
-7. [Privacy & Security](#7-privacy--security)
-8. [Acknowledgments](#acknowledgments)
-9. [License](#license)
+7. [Stakeholder Analysis](#7-stakeholder-analysis)
+8. [Privacy & Security](#8-privacy--security)
+9. [Acknowledgments](#9-acknowledgments)
+10. [Copyright Requirement](#10-copyright-requirement)
+11. [License](#11-license)]
 
 ---
 
@@ -312,26 +314,63 @@ adb install Smart_Clipboard_Assistant.apk
 - **AnySoftKeyboard:** Open-source keyboard framework
 
 ---
+## 7. Stakeholder Analysis
 
-## 7. Privacy & Security
+Our project is designed to create tangible value for three distinct groups: the everyday Consumers who use smartphones, the Businesses who develop applications, and our Team as creators of this technology.
+
+#### 1. The Consumer (The End-User)
+This is the primary beneficiary of our solution. Consumers are anyone who uses an Android smartphone and performs copy-paste actions regularly.
+
+**Their Problem:** The current copy-paste workflow is fragmented and inefficient. A user copies a piece of information and must then manually navigate through their device to find and open the right application to use that information. This process is slow, repetitive, and breaks concentration, leading to wasted time and a frustrating user experience.
+
+**Our Impact & Value:**
+
+- **Increased Productivity:** We reduce the number of steps required to perform a task (e.g., navigating to an address) by up to 80%. What previously took 6-7 taps now takes a single tap.
+- **Frictionless Experience:** The keyboard proactively brings the right tools to the user, creating a seamless and intuitive workflow that feels like a natural extension of their intent.
+- **Personalization:** The system learns and adapts. By prioritizing the user's most frequently used apps for specific tasks (e.g., learning you prefer Uber over Google Maps for addresses), the assistant becomes more efficient and personalized over time.
+- **Privacy & Security:** By performing all AI classification directly on the device, we guarantee that the user's clipboard content—which can be highly sensitive—is never sent to the cloud. This privacy-first design builds trust and ensures security.
+
+#### 2. The Business (App Developers & Device Manufacturers like Samsung)
+This group benefits from the new, streamlined pathway our solution creates between user intent and app engagement.
+
+**Their Goal:** To increase user engagement, become the default application for specific tasks, and offer innovative features that differentiate their products.
+
+**Our Impact & Value:**
+
+- **Increased App Engagement:** Our keyboard creates a high-intent, low-friction entry point into applications. When a user copies an address, apps like Uber, Zomato, or Google Maps can be suggested, driving traffic directly to them at the moment of need.
+- **Preference-Based Promotion:** The personalization feature acts as an organic promotion engine. The apps a user actually prefers are surfaced more frequently, reinforcing brand loyalty and increasing their market share of user actions.
+- **Competitive Advantage for Samsung:** For a device manufacturer like Samsung, integrating this feature into the native Samsung Keyboard provides a unique, intelligent, and genuinely useful function that competitors lack. It enhances the value of the One UI ecosystem and showcases leadership in on-device AI.
+
+#### 3. The Team (EchoAndCopyCollective - The Innovators)
+As the developers, this project serves as a demonstration of our ability to solve a complex, real-world problem through creative technical implementation.
+
+**Our Goal:** To build a working, impactful prototype that meets the hackathon's technical and creative challenges.
+
+**Our Achievements & Showcased Skills:**
+
+- **Technical Depth:** We successfully integrated a sophisticated DistilBERT model into an Android application for on-device inference, implemented a local database for personalization, and navigated complex Android permissions.
+- **Creative Problem-Solving:** We bypassed Android's modern clipboard restrictions by building upon an open-source keyboard framework—a key workaround that made the project feasible and secure.
+- **End-to-End Execution:** We managed the entire project lifecycle from data preparation and model training in Google Colab to final deployment and UI/UX implementation in a functional Android app. This demonstrates our ability to deliver a complete, polished solution.
+
+## 8. Privacy & Security
 
 All text processing happens **100% on-device**. No data is ever sent to external servers, ensuring complete user privacy and data security.
 
 ---
 
-## Acknowledgments
+## 9. Acknowledgments
 
 This project is built upon the open-source AnySoftKeyboard project. We thank the open-source community for their invaluable contributions.
 
 ---
 
-## Copyright Requirement
+## 10. Copyright Requirement
 
 _Remember:_ the components in this repository are released under the Apache2 license. By contributing to this repository you give all copyright and distribution rights to the [AnySoftKeyboard maintainer](https://github.com/menny).
 
 ---
 
-## License
+## 11. License
 
 ```
 Copyright 2009 Menny Even-Danan
