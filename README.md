@@ -319,16 +319,16 @@ adb install Smart_Clipboard_Assistant.apk
 Our project is designed to create tangible value for three distinct groups: the everyday Consumers who use smartphones, the Businesses who develop applications, and our Team as creators of this technology.
 
 #### 1. The Consumer (The End-User)
-This is the primary beneficiary of our solution. Consumers are anyone who uses an Android smartphone and performs copy-paste actions regularly.
+This is the primary beneficiary of our solution. Consumers are anyone who uses an Android smartphone and performs copy paste actions regularly.
 
-**Their Problem:** The current copy-paste workflow is fragmented and inefficient. A user copies a piece of information and must then manually navigate through their device to find and open the right application to use that information. This process is slow, repetitive, and breaks concentration, leading to wasted time and a frustrating user experience.
+**Their Problem:** The current copy paste workflow is fragmented and inefficient. A user copies a piece of information and must then manually navigate through their device to find and open the right application to use that information. This process is slow, repetitive, and breaks concentration, leading to wasted time and a frustrating user experience.
 
 **Our Impact & Value:**
 
-- **Increased Productivity:** We reduce the number of steps required to perform a task (e.g., navigating to an address) by up to 80%. What previously took 6-7 taps now takes a single tap.
+- **Increased Productivity:** We reduce the number of steps required to perform a task (e.g. navigating to an address) by up to 80%. What previously took 6-7 taps now takes a single tap.
 - **Frictionless Experience:** The keyboard proactively brings the right tools to the user, creating a seamless and intuitive workflow that feels like a natural extension of their intent.
 - **Personalization:** The system learns and adapts. By prioritizing the user's most frequently used apps for specific tasks (e.g., learning you prefer Uber over Google Maps for addresses), the assistant becomes more efficient and personalized over time.
-- **Privacy & Security:** By performing all AI classification directly on the device, we guarantee that the user's clipboard content—which can be highly sensitive—is never sent to the cloud. This privacy-first design builds trust and ensures security.
+- **Privacy & Security:** By performing all AI classification directly on the device, we guarantee that the user's clipboard content which can be highly sensitive is never sent to the cloud. This privacy first design builds trust and ensures security.
 
 #### 2. The Business (App Developers & Device Manufacturers like Samsung)
 This group benefits from the new, streamlined pathway our solution creates between user intent and app engagement.
@@ -337,19 +337,19 @@ This group benefits from the new, streamlined pathway our solution creates betwe
 
 **Our Impact & Value:**
 
-- **Increased App Engagement:** Our keyboard creates a high-intent, low-friction entry point into applications. When a user copies an address, apps like Uber, Zomato, or Google Maps can be suggested, driving traffic directly to them at the moment of need.
-- **Preference-Based Promotion:** The personalization feature acts as an organic promotion engine. The apps a user actually prefers are surfaced more frequently, reinforcing brand loyalty and increasing their market share of user actions.
-- **Competitive Advantage for Samsung:** For a device manufacturer like Samsung, integrating this feature into the native Samsung Keyboard provides a unique, intelligent, and genuinely useful function that competitors lack. It enhances the value of the One UI ecosystem and showcases leadership in on-device AI.
+- **Increased App Engagement:** Our keyboard creates a high intent, low friction entry point into applications. When a user copies an address, apps like Uber, Zomato, or Google Maps can be suggested, driving traffic directly to them at the moment of need.
+- **Preference Based Promotion:** The personalization feature acts as an organic promotion engine. The apps a user actually prefers are surfaced more frequently, reinforcing brand loyalty and increasing their market share of user actions.
+- **Competitive Advantage for Samsung:** For a device manufacturer like Samsung, integrating this feature into the native Samsung Keyboard provides a unique, intelligent, and genuinely useful function that competitors lack. It enhances the value of the One UI ecosystem and showcases leadership in on device AI.
 
-#### 3. The Team (EchoAndCopyCollective - The Innovators)
-As the developers, this project serves as a demonstration of our ability to solve a complex, real-world problem through creative technical implementation.
+#### 3. The Team 
+As the developers, this project serves as a demonstration of our ability to solve a complex, real world problem through creative technical implementation.
 
 **Our Goal:** To build a working, impactful prototype that meets the hackathon's technical and creative challenges.
 
 **Our Achievements & Showcased Skills:**
 
-- **Technical Depth:** We successfully integrated a sophisticated DistilBERT model into an Android application for on-device inference, implemented a local database for personalization, and navigated complex Android permissions.
-- **Creative Problem-Solving:** We bypassed Android's modern clipboard restrictions by building upon an open-source keyboard framework—a key workaround that made the project feasible and secure.
+- **Technical Depth:** We successfully integrated a sophisticated DistilBERT model into an Android application for on device inference, implemented a local database for personalization, and navigated complex Android permissions.
+- **Creative Problem Solving:** We bypassed Android's modern clipboard restrictions by building upon an open-source keyboard framework a key workaround that made the project feasible and secure.
 - **End-to-End Execution:** We managed the entire project lifecycle from data preparation and model training in Google Colab to final deployment and UI/UX implementation in a functional Android app. This demonstrates our ability to deliver a complete, polished solution.
 
 ## 8. Privacy & Security
