@@ -1,9 +1,10 @@
 # Smart Clipboard Assistant: Context-Aware App Suggestions
 
 **Theme ID:** 4  
-**Team:** Echo&CopyCollective  
+**Team:** Echo And Copy Collective  
 **College:** RV College of Engineering
 **Team Lead:** Bhoomika Sundar
+
 
 ---
 
