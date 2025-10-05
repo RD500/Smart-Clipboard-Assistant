@@ -59,7 +59,7 @@ Our prototype successfully implements the four core phases of our development pl
 ---
 
 ## 3. Technical Architecture
-<img src="Images/img_10.jpg" alt="Architectural diagram" width="300"/>
+<img src="Images/img_10.jpg" alt="Architectural diagram"/>
 
 Our primary focus was on building a robust technical foundation ("Tech Over Fancy UI"). The architecture was designed to be powerful, efficient, and privacy-centric.
 
