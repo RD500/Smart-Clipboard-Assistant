@@ -93,7 +93,7 @@ This project consists of two main parts: the Android application and the Python 
 **1. Clone the Repository:**
 
 ```bash
-git clone [https://github.com/RD500/Smart-Clipboard-Assistant.git]
+git clone https://github.com/RD500/Smart-Clipboard-Assistant.git
 ```
 
 **2. The TFLite Model:**
