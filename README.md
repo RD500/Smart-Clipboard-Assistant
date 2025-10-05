@@ -12,7 +12,7 @@
 ## Submissions
 
 - **Demo Video:** [EchoAndCopyCollective_RVCE_4_BhoomikaSundar](https://drive.google.com/file/d/1aeUD17z6z1W3dLDeLS15LcmLpAEPwQOd/view?usp=drivesdk)
-- **Supporting Document (PPT/PDF):** [Add your document link here]
+- **Supporting Document (PPT/PDF):** [EchoAndCopyCollective](https://drive.google.com/file/d/1knYMYB0gomAydWy5uRP_BrmBkGto-DYx/view?usp=drivesdk)
 
 ---
 
