@@ -3,6 +3,7 @@
 **Theme ID:** 4  
 **Team:** Echo And Copy Collective  
 **College:** RV College of Engineering
+
 **Team Lead:** Bhoomika Sundar
 
 
@@ -10,7 +11,7 @@
 
 ## Submissions
 
-- **Demo Video:** [Add your video link here]
+- **Demo Video:** [EchoAndCopyCollective_RVCE_4_BhoomikaSundar](https://drive.google.com/file/d/1aeUD17z6z1W3dLDeLS15LcmLpAEPwQOd/view?usp=drivesdk)
 - **Supporting Document (PPT/PDF):** [Add your document link here]
 
 ---
@@ -59,6 +60,7 @@ Our prototype successfully implements the four core phases of our development pl
 ---
 
 ## 3. Technical Architecture
+<img src="Images/img_10.jpg" alt="Architectural diagram"/>
 
 Our primary focus was on building a robust technical foundation ("Tech Over Fancy UI"). The architecture was designed to be powerful, efficient, and privacy-centric.
 
@@ -93,7 +95,7 @@ This project consists of two main parts: the Android application and the Python 
 **1. Clone the Repository:**
 
 ```bash
-git clone [https://github.com/RD500/Smart-Clipboard-Assistant.git]
+git clone https://github.com/RD500/Smart-Clipboard-Assistant.git
 ```
 
 **2. The TFLite Model:**
