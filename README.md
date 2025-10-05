@@ -12,9 +12,11 @@
 ## Submissions
 
 - **Demo Video:** [EchoAndCopyCollective_RVCE_4_BhoomikaSundar](https://drive.google.com/file/d/1aeUD17z6z1W3dLDeLS15LcmLpAEPwQOd/view?usp=drivesdk)
-      - [The video is also avaliable here](EchoAndCopyCollective_RVCE_4_BhoomikaSundar.mp4)
+  - [The video is also available here](EchoAndCopyCollective_RVCE_4_BhoomikaSundar.mp4)
+
 - **Supporting Document (PPT/PDF):** [EchoAndCopyCollective](https://drive.google.com/file/d/1knYMYB0gomAydWy5uRP_BrmBkGto-DYx/view?usp=drivesdk)
-      - [The report is also avaliable here](EchoAndCopyCollective.pdf)
+  - [The report is also available here](EchoAndCopyCollective.pdf)
+
 
 ---
 
